@@ -88,8 +88,8 @@ downloadFile(fileHash): Get peer list, coordinate requests, and reassemble chunk
 
 import hashlib # Can be used for generating hash values.
 import os # Can be used for file operations.
-
-
+import sys
+import socket
 #TODO: Implement the functions below.
 
 
@@ -97,6 +97,7 @@ import os # Can be used for file operations.
 #TODO: Add a list to store all the available files for sharing. i.e. fileList = []
 
 fileList = []       # List of files available for sharing.
+connectedPeers = [] # List of connected peers in the network
 connectedPeer = ""  # The peer to which the client is connected.
 
 
@@ -182,7 +183,7 @@ def updateDownloadProgress(fileHash, progress):
 
 
 
-#   3. TODO: Peer Management
+#   3. TODO: Peer Management (Aino)
 def registerPeer():
     """
     Register a peer with given IP address and port number.
@@ -193,6 +194,19 @@ def registerPeer():
 
     Returns: None
     """
+    # The host peer is detected automatically by taking the ip address of the computer
+    hostPeerName = socket.getfqdn()
+    hostIpAddress = socket.gethostbyname(hostPeerName)
+    hostSocket = socket.create_server(hostIpAddress)
+    print(hostSocket)
+    connectedPeers.append(hostSocket)
+
+
+def connectToPeer(name):
+    # Find the peer from the list (In this case, we have only two connected clients but this would be scalable for more than two users if implemented in this way)
+    print("Trying to find the requested peer..")
+
+
 
 def unregisterPeer():
     """
@@ -241,7 +255,11 @@ def downloadFile(fileHash):
     """
 
 
+def main():
+    registerPeer()
 
+
+main()    
 #TODO: Add in the functions from above to the main below to make them work.
 # Main
 if __name__ == "__main__":
