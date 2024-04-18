@@ -224,8 +224,6 @@ def registerPeer(name, port):
     """
     Register a peer with name and port number.
     Both sides have to do it (or only one depending on implementation. Either works.).
-    You can only register one peer right now. (we can add more later on like folder specific peer)
-
     Parameters: name, port
 
     Returns: None
@@ -236,13 +234,13 @@ def registerPeer(name, port):
     print("Peer registered successfully!")
     return hostSocket
 
-def connectToPeer(name):
+def connectToPeer(hostSocket, name):
     # Find the peer from the list (In this case, we have only two connected clients but this would be scalable for more than two users if implemented in this way)
     print("Trying to find the requested peer..")
     for peer in connectedPeers:
         if (peer.getName() == name):
             print("Opening connection..")
-            peer.connect
+            hostSocket.sendFile(hostSocket, )
 
 
 def unregisterPeer(name):
@@ -314,7 +312,7 @@ def main():
     while(True):
         choice = choices()
         if(choice == 1):
-            peerName = input("Who you want to send file to: ")
+            peerName = input("Who you want to download file from: ")
             connectToPeer(hostSocket, peerName)
         elif(choice == 0):
             unregisterPeer(username)
