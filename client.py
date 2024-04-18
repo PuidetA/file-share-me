@@ -90,8 +90,10 @@ import hashlib # Can be used for generating hash values.
 import os # Can be used for file operations.
 import sys
 import socket
+import threading
 #TODO: Implement the functions below.
-
+# Source 1) Implementing peer-to-peer network in Python is based on this tutorial: https://www.linkedin.com/pulse/implementing-peer-to-peer-data-exchange-inpython-luis-soares-m-sc-/
+# Source 2) Usage of sockets is based on this: https://www.youtube.com/watch?v=YwWfKitB8aA
 
 
 #TODO: Add a list to store all the available files for sharing. i.e. fileList = []
@@ -99,7 +101,40 @@ import socket
 fileList = []       # List of files available for sharing.
 connectedPeers = [] # List of connected peers in the network
 connectedPeer = ""  # The peer to which the client is connected.
+# Based on Source 1)
+class NewPeer: 
+    def __init__(self, name, port):
+        self.host = socket.gethostbyname(socket.gethostname())
+        self.name = name
+        self.port = port
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connections = []
+    def getName(self):
+        return self.name
+    def connectToPeer(self, peerHost, peerPort):
+        try:
+            newConnection = self.socket.connect((peerHost, peerPort))
+            self.connections.append(newConnection)
+        except socket.error as e:
+            print("Failed to connect to the peer")
 
+    def listenForNewConnections(self):
+        self.socket.bind((self.host, self.port))
+        self.socket.listen(10)
+        while True:
+            newConnection, address = self.socket.accept()
+            self.connections.append(newConnection)
+
+    def sendFile(self, file):
+        for con in self.connections:
+            try:
+                con.sendall(file)
+
+            except socket.error as e:
+                print(f"Failed to send the file. Error: {e}")
+    def start(self):
+        threadForListening = threading.Thread(target=self.listenForNewConnections)
+        threadForListening.start()
 
 #   1. TODO: File Handling
 def calculateFileHash(filePath):
@@ -184,39 +219,44 @@ def updateDownloadProgress(fileHash, progress):
 
 
 #   3. TODO: Peer Management (Aino)
-def registerPeer():
+# NewPeer class is going to be used and is based on source 1!
+def registerPeer(name, port):
     """
-    Register a peer with given IP address and port number.
+    Register a peer with name and port number.
     Both sides have to do it (or only one depending on implementation. Either works.).
     You can only register one peer right now. (we can add more later on like folder specific peer)
 
-    Parameters: None
+    Parameters: name, port
 
     Returns: None
     """
-    # The host peer is detected automatically by taking the ip address of the computer
-    hostPeerName = socket.getfqdn()
-    hostIpAddress = socket.gethostbyname(hostPeerName)
-    hostSocket = socket.create_server(hostIpAddress)
-    print(hostSocket)
+    hostSocket = NewPeer(name, port)
+    hostSocket.start()
     connectedPeers.append(hostSocket)
-
+    print("Peer registered successfully!")
+    return hostSocket
 
 def connectToPeer(name):
     # Find the peer from the list (In this case, we have only two connected clients but this would be scalable for more than two users if implemented in this way)
     print("Trying to find the requested peer..")
+    for peer in connectedPeers:
+        if (peer.getName() == name):
+            print("Opening connection..")
+            peer.connect
 
 
-
-def unregisterPeer():
+def unregisterPeer(name):
     """
     Unregister the current peer. i.e. make the connectedPeer = "".
 
-    Parameters: None
+    Parameters: name
 
     Returns: None
     """
-
+    for peer in connectedPeers:
+        if(peer.getName() == name):
+            peer.socket.close()
+            connectedPeers.remove(peer)
 
 
 
@@ -253,11 +293,34 @@ def downloadFile(fileHash):
 
     Returns: None
     """
-
+    fileIndex = fileList.index(fileHash)
+    if (ValueError):
+        print("File is not available to share")
+        return
+    else:
+        downloadedFile = fileList[fileIndex]
+def choices():
+    print("What would you like to do?")
+    print("1) Send file to peer")
+    print("0) End program")
+    choice = int(input("Give your choice: "))
+    return choice
 
 def main():
-    registerPeer()
-
+    port = int(sys.argv[1])
+    # Specifying the new user as part of peer network
+    username = input("Give your username: ")
+    hostSocket = registerPeer(username, port)
+    while(True):
+        choice = choices()
+        if(choice == 1):
+            peerName = input("Who you want to send file to: ")
+            connectToPeer(hostSocket, peerName)
+        elif(choice == 0):
+            unregisterPeer(username)
+            print("Closing program, thank you..")
+            break
+    
 
 main()    
 #TODO: Add in the functions from above to the main below to make them work.
