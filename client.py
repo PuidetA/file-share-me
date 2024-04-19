@@ -129,7 +129,6 @@ class NewPeer:
         for con in self.connections:
             try:
                 con.sendall(file)
-
             except socket.error as e:
                 print(f"Failed to send the file. Error: {e}")
     def start(self):
@@ -240,7 +239,7 @@ def connectToPeer(hostSocket, name):
     for peer in connectedPeers:
         if (peer.getName() == name):
             print("Opening connection..")
-            hostSocket.sendFile(hostSocket, )
+            hostSocket.sendFile(hostSocket)
 
 
 def unregisterPeer(name):
