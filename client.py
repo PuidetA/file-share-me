@@ -91,10 +91,11 @@ import os # Can be used for file operations.
 import sys
 import socket
 import threading
+import urllib.request
 #TODO: Implement the functions below.
 # Source 1) Implementing peer-to-peer network in Python is based on this tutorial: https://www.linkedin.com/pulse/implementing-peer-to-peer-data-exchange-inpython-luis-soares-m-sc-/
 # Source 2) Usage of sockets is based on this: https://www.youtube.com/watch?v=YwWfKitB8aA
-
+# Spurce 3) Getting public ip address: https://stackoverflow.com/questions/2311510/getting-a-machines-external-ip-address-with-python
 
 #TODO: Add a list to store all the available files for sharing. i.e. fileList = []
 
@@ -104,7 +105,7 @@ connectedPeer = ""  # The peer to which the client is connected.
 # Based on Source 1)
 class NewPeer: 
     def __init__(self, name, port):
-        self.host = socket.gethostbyname(socket.gethostname())
+        self.host = urllib.request.urlopen('https://ident.me').read().decode('utf-8')
         self.name = name
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -240,8 +241,6 @@ def reassembleFile(fileHash, chunkPaths):
     filePath = file_reassembled 
     return filePath
 
-
-
 #   2. TODO: User Interface (UI)
 def displayFileList():
     """
@@ -349,7 +348,6 @@ def requestFile(username, fileHash):
         if (host.getName() == username):
             #host = peer.socket
             host.sendData(["requestFile",fileHash])
-
     #if (host):
       #  host.sendData(["requestFile",fileHash])
             
