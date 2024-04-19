@@ -126,6 +126,11 @@ class NewPeer:
         while True:
             newConnection, address = self.socket.accept()
             self.connections.append(newConnection)
+            message = self.socket.recv(1024)
+            print(message)
+            if (message[0] == "requestFile"):
+                print("Looking for the file..")
+            
 
     def sendData(self, data):
         for con in self.connections:
@@ -133,6 +138,8 @@ class NewPeer:
                 con.sendall(data)
             except socket.error as e:
                 print(f"Failed to send the data. Error: {e}")
+
+
     def start(self):
         threadForListening = threading.Thread(target=self.listenForNewConnections)
         threadForListening.start()
@@ -337,7 +344,6 @@ def requestFile(username, fileHash):
     Returns: None
     """
     # Checking who has the corresponding file
-    host = None
     print("Locating file..")
     for host in connectedPeers: 
         if (host.getName() == username):
