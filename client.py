@@ -147,6 +147,23 @@ def calculateFileHash(filePath):
     Returns:
     - hashValue: The calculated hash value for the file. E.g. "a1b2c3d4".
     """
+        # Initializing the sha1() method
+    sha1 = hashlib.sha1()
+
+    # Passing the byte stream as an argument
+    sha1.update(filePath)
+
+    # Make a hexadecimal form hash of the given byte stream
+    hashValue = sha1.hexdigest()
+    print(hashValue)
+
+    # Source 2:
+    with open(filePath, "rb") as file: 
+        digest = hashlib.file_digest(file, "sha254")
+    
+    hashValue = digest.hexdigest() 
+    
+    return hashValue
 
 
 def divideFileIntoChunks(filePath, chunkSize):
@@ -160,9 +177,32 @@ def divideFileIntoChunks(filePath, chunkSize):
     Returns:
     - chunkPaths: A list containing the paths to the generated chunks. E.g. ["C:/Users/User/Documents/file_chunk1.txt", "C:/Users/User/Documents/file_chunk2.txt"].
     """
+    chunkPaths = []
+
+    file = open(filePath, "rb")
+    chunk = 0
+    byte = file.read(chunkSize) 
+    while byte:
+        
+        file_temp = "chunk" + str(chunk) + ".txt"
+        file_chunk = open(file_temp, "wb")
+        file_chunk.write(byte)
+        file_chunk.close()
+        
+        current_directory = os.getcwd()
+        chunk_path = os.path.join(current_directory, file_temp)
+
+        # Tehdäänkö hash tässä vaiheessa vai jossain muualla?
+        # chunk_path_hashed = calculateFileHash(chunk_path)
+        chunkPaths.append(chunk_path)
+            
+        byte = file.read(chunkSize)
+         
+        chunk += 1
+    return chunkPaths
 
 
-def reassembleFile(fileHash):
+def reassembleFile(fileHash, chunkPaths):
     """
     Combines chunks into the complete file after downloading.
 
@@ -172,6 +212,25 @@ def reassembleFile(fileHash):
     Returns:
     - filePath: The path to the reassembled file. E.g. "C:/Users/User/Documents/file.txt".
     """
+    file_name = "imageCopy.png" # Kovakoodattu :D Kato miten menee lopullisessa työssä
+    current_directory = os.getcwd()
+    path_reassembled = os.path.join(current_directory, file_name)
+    file_reassembled = open(path_reassembled, "ab")
+    # chunks_reassembled = None
+    
+    # Read the file chunks into one string
+    for chunk_path in chunkPaths:
+        file_chunk = open(chunk_path, "rb")
+        byte = file_chunk.read(1024)
+        file_reassembled.write(byte)
+        # chunks_reassembled += file_chunk
+        file_chunk.close()
+    
+    # Write the string into a file
+    # file_reassembled.write(chunks_reassembled)
+    file_reassembled.close()
+    filePath = file_reassembled 
+    return filePath
 
 
 
@@ -324,4 +383,42 @@ main()
 #TODO: Add in the functions from above to the main below to make them work.
 # Main
 if __name__ == "__main__":
-    pass
+    chunk_size = 1024 # Chunk size will be approximately 1 kb (1024 bytes)
+    chunkPaths = []
+    port = int(sys.argv[1])
+    # Specifying the new user as part of peer network
+    username = input("Give your username: ")
+    hostSocket = registerPeer(username, port)
+    while True:
+        print("What do you want to do?")
+        print("1) Print file list")
+        print("2) Upload file")
+        print("3) Download file")
+        print("0) Exit")
+        choice = input("your choice: ")
+        if choice == "1":
+            print("vittujoo")
+
+        elif choice == "2":
+            file_name = input("Give the file name: ")
+            peerName = input("Who you want to download file from: ")
+            connectToPeer(hostSocket, peerName)
+
+            current_directory = os.getcwd()
+            filePath = os.path.join(current_directory, file_name)
+
+            chunkPaths = divideFileIntoChunks(filePath, chunk_size)
+            print("File broken into chunks.")
+        
+        
+        elif choice == "3":
+            # file = input("Give name of the file you want to save the fixed file as: ")
+            filePath = reassembleFile(chunkPaths)
+            print(filePath)
+            
+        
+        elif choice == "0":
+            print("Thank you for using this very cool app.")
+            break
+        else:
+            print("Read the options again and give a new choice.")
