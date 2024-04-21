@@ -105,7 +105,7 @@ connectedPeer = ""  # The peer to which the client is connected.
 # Based on Source 1)
 class NewPeer: 
     def __init__(self, name, port):
-        self.host = urllib.request.urlopen('https://ident.me').read().decode('utf-8')
+        self.host = str(urllib.request.urlopen('https://ident.me').read().decode('utf-8'))
         self.name = name
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -115,8 +115,10 @@ class NewPeer:
     def getFileList(self):
         return self.fileList
     def connectToPeer(self, peerHost, peerPort):
+        print("Trying to connect..")
         try:
-            newConnection = self.socket.create_connection(peerHost)
+            print(peerHost, peerPort)
+            newConnection = self.socket.connect((peerHost, peerPort))
             self.connections.append(newConnection)
         except socket.error as e:
             print("Failed to connect to the peer")
@@ -125,7 +127,9 @@ class NewPeer:
         self.socket.bind((self.host, self.port))
         self.socket.listen(10)
         while True:
+            print("Listening for connections..")
             newConnection, address = self.socket.accept()
+            print("Succeeded")
             self.connections.append(newConnection)
             message = self.socket.recv(1024)
             print(message)
@@ -134,6 +138,9 @@ class NewPeer:
             
 
     def sendData(self, data):
+        # This should send this data to everyone in the network, but our network is gonna have two clients only so we can send request directly to the client who has the file
+        print(data)
+        #if data[1] in fileDict:
         for con in self.connections:
             try:
                 con.sendall(data)
@@ -332,7 +339,7 @@ def unregisterPeer(name):
 
 
 #   4. TODO: File Exchange
-def requestFile(username, fileHash):
+def requestFile(username, fileHash, fileOwner):
     """
     Send a request to a peer.
 
@@ -342,14 +349,22 @@ def requestFile(username, fileHash):
 
     Returns: None
     """
-    # Checking who has the corresponding file
-    print("Locating file..")
-    for host in connectedPeers: 
-        if (host.getName() == username):
-            #host = peer.socket
-            host.sendData(["requestFile",fileHash])
-    #if (host):
-      #  host.sendData(["requestFile",fileHash])
+    print(username)
+    host = None
+    receiver = None
+    # Finding the socket matching the host
+    for peer in connectedPeers: 
+        if (peer.getName() == username):
+            host = peer
+            #host.sendData(["requestFile", fileHash, fileOwner])
+    # finding the ip address of the one with the file
+    for peer in connectedPeers:
+        if (peer.getName() == fileOwner):
+            receiver = peer
+    
+    if (host and receiver):
+        host.connectToPeer(receiver.host, int(sys.argv[1]))
+        host.sendData(["requestFile",fileHash])
             
 
 
@@ -379,10 +394,10 @@ def downloadFile(username, fileName):
         # Currently this system takes the first user who has the requested file even if multiple users have the same file
         if(fileDict[key][0] == fileName):
             fileHash = key
+            fileOwner = fileDict[key][1]
             print("File found!")
             
-    print(fileHash)
-    requestFile(username, fileHash)
+    requestFile(username, fileHash, fileOwner)
 
     #connectToPeer(fileHash)
   
@@ -393,31 +408,35 @@ if __name__ == "__main__":
     chunkPaths = []
     port = int(sys.argv[1])
     # Specifying the new user as part of peer network
+    fileDict = {"hash1": ["image.png", "peername1"], "hash2": ["start.png", "peername2"]}
     username = input("Give your username: ")
     hostSocket = registerPeer(username, port)
-    while True:
-        print("What do you want to do?")
-        print("1) Print file list")
-        print("2) Upload file")
-        print("3) Download file")
-        print("0) Exit")
-        choice = input("your choice: ")
-        if choice == "1":
-            print("vittujoo")
+    fileName = input("Give the file name: ")
+    downloadFile(username, fileName)
+    #hostSocket.sendData()
+    #while True:
+     #   print("What do you want to do?")
+      #  print("1) Print file list")
+       # print("2) Upload file")
+       # print("3) Download file")
+       # print("0) Exit")
+        #choice = input("your choice: ")
+        #if choice == "1":
+         #   print("vittujoo")
 
-        elif choice == "2":
-            fileDict = {"hash1": ["image.png", "peername1"], "hash2": ["start.png", "peername2"]}
-            fileName = input("Give the file name: ")
-            downloadFile(username, fileName)
-        elif choice == "3":
-            # file = input("Give name of the file you want to save the fixed file as: ")
-            filePath = reassembleFile(chunkPaths)
-            print(filePath)
+        #elif choice == "2":
+         #   fileDict = {"hash1": ["image.png", "peername1"], "hash2": ["start.png", "peername2"]}
+          #  fileName = input("Give the file name: ")
+           # downloadFile(username, fileName)
+        #elif choice == "3":
+         #   # file = input("Give name of the file you want to save the fixed file as: ")
+          #  filePath = reassembleFile(chunkPaths)
+           # print(filePath)
             
         
-        elif choice == "0":
-            unregisterPeer(username)
-            print("Thank you for using this very cool app.")
-            break
-        else:
-            print("Read the options again and give a new choice.")
+        #elif choice == "0":
+         #   unregisterPeer(username)
+          #  print("Thank you for using this very cool app.")
+           # break
+        #else:
+         #   print("Read the options again and give a new choice.")
