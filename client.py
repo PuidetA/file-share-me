@@ -193,23 +193,43 @@ def main():
     ctk.set_default_color_theme("green") #Sets the default color theme of the GUI elements to green
     root.title("File Sharing Application") #Title of the window
     root.geometry("800x600") #Size of the window
-    commandFrame=ctk.CTkFrame(root, width=25, height=200, corner_radius=10) #Frame in which the command buttons and entries are placed in
-    commandFrame.grid(row=0, column=1, padx=10, pady=10) #Places the commandFrame in the main window
-    resultsFrame=ctk.CTkFrame(root, width=200, height=400, corner_radius=10) #Frame in which the files are displayed TODO: Insert it and implement the displayFileList() function
 
 
 
-    #text, then buttons, then text boxes for entry
-    introText = ctk.CTkLabel(commandFrame, text="File Sharing Application Text")
+    #Configuring the grid layout of the window. It is a 4x4 grid.
+    root.grid_columnconfigure(1, weight=1)
+    #root.grid_columnconfigure((2, 3), weight=0)
+    root.grid_columnconfigure(4, weight=1)
+    root.grid_rowconfigure((0, 1, 2), weight=1)
+
+    ### commandFrame
+
+    commandFrame=ctk.CTkFrame(root, width=140, corner_radius=0) #Frame in which the command buttons and entries are placed in
+    commandFrame.grid(row=0, column=0, sticky="nsew", rowspan=4) #Places the commandFrame in the main window
+    commandFrame.grid_rowconfigure(6, weight=1) #Configures the row of the commandFrame
+
+    ## commandFrame widgets
+    introText = ctk.CTkLabel(commandFrame, text="File Sharing Application Text", corner_radius=10)
     introText.grid(row=0, column=0)
     connectInstructionText = ctk.CTkLabel(commandFrame, text="Enter IP address and port number to connect to")
     connectInstructionText.grid(row=1, column=0)
-    connectButton = ctk.CTkButton(commandFrame, text="Connect", command=registerPeerButton)
-    connectButton.grid(row=4, column=0, pady=10)
     connectEntryIP = ctk.CTkEntry(commandFrame, placeholder_text="IP Address")
     connectEntryIP.grid(row=2, column=0)
     connectEntryPort = ctk.CTkEntry(commandFrame, placeholder_text="Port Number")
     connectEntryPort.grid(row=3, column=0)
+    connectButton = ctk.CTkButton(commandFrame, text="Connect", command=registerPeerButton)
+    connectButton.grid(row=4, column=0, pady=10)
+
+
+
+    ### resultsFrame
+
+    resultsFrame=ctk.CTkFrame(root, width=200, height=400, corner_radius=10) #Frame in which the files are displayed TODO: Insert it and implement the displayFileList() function
+    resultsFrame.grid(row=0, column=4, sticky="NESW", rowspan=4, columnspan=2) #Places the resultsFrame in the main window
+    resultsFrame.grid_rowconfigure(4, weight=3) #Configures the row of the resultsFrame
+
+
+    ## resultsFrame widgets
 
     #starts the UI (mainloop)
     root.mainloop()
