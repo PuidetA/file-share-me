@@ -318,7 +318,7 @@ def listenForServerConnection(client, username):
     while isAlive:
         try: 
             message = client.recv(1024).decode("utf-8")
-            if(message == "FILEREQUEST"):
+            #if(message == "FILEREQUEST"):
                 
              #   client.send(bytes(username, "utf-8"))
 
