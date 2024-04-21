@@ -88,7 +88,8 @@ downloadFile(fileHash): Get peer list, coordinate requests, and reassemble chunk
 
 import hashlib # Can be used for generating hash values.
 import os # Can be used for file operations.
-
+import tkinter as ttk # Can be used for GUI.
+import customtkinter as ctk # Can be used for GUI.
 
 #TODO: Implement the functions below.
 
@@ -144,7 +145,7 @@ def displayFileList():
     """
     Updates the UI with the list of files available for download from other peers. E.g. displays a list of files in a window.
 
-    Parameters: None
+    Parameters: fileList e.g. ["file1.txt", "file2.txt"]
 
     Returns: None
     """
@@ -178,6 +179,45 @@ def updateDownloadProgress(fileHash, progress):
 
     Returns: None
     """
+
+def main():
+    """
+    Main function to handle the user interface and file sharing operations.
+
+    Parameters: None
+
+    Returns: None
+    """
+    root=ctk.CTk() #root/main window
+    ctk.set_appearance_mode("dark") #Sets the appearance mode of the GUI to dark
+    ctk.set_default_color_theme("green") #Sets the default color theme of the GUI elements to green
+    root.title("File Sharing Application") #Title of the window
+    root.geometry("800x600") #Size of the window
+    commandFrame=ctk.CTkFrame(root, width=25, height=200, corner_radius=10) #Frame in which the command buttons and entries are placed in
+    commandFrame.grid(row=0, column=1, padx=10, pady=10) #Places the commandFrame in the main window
+    resultsFrame=ctk.CTkFrame(root, width=200, height=400, corner_radius=10) #Frame in which the files are displayed TODO: Insert it and implement the displayFileList() function
+
+
+
+    #text, then buttons, then text boxes for entry
+    introText = ctk.CTkLabel(commandFrame, text="File Sharing Application Text")
+    introText.grid(row=0, column=0)
+    connectInstructionText = ctk.CTkLabel(commandFrame, text="Enter IP address and port number to connect to")
+    connectInstructionText.grid(row=1, column=0)
+    connectButton = ctk.CTkButton(commandFrame, text="Connect", command=registerPeerButton)
+    connectButton.grid(row=4, column=0, pady=10)
+    connectEntryIP = ctk.CTkEntry(commandFrame, placeholder_text="IP Address")
+    connectEntryIP.grid(row=2, column=0)
+    connectEntryPort = ctk.CTkEntry(commandFrame, placeholder_text="Port Number")
+    connectEntryPort.grid(row=3, column=0)
+
+    #starts the UI (mainloop)
+    root.mainloop()
+
+def registerPeerButton(): #Function to handle the connect button
+    pass
+    registerPeer(connectEntryIP.get(), connectEntryPort.get()) #Calls the registerPeer function with the IP and port number entered by the user via entryWidgetName.get()
+    
 
 
 
@@ -245,4 +285,4 @@ def downloadFile(fileHash):
 #TODO: Add in the functions from above to the main below to make them work.
 # Main
 if __name__ == "__main__":
-    pass
+    main()
