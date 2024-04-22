@@ -237,13 +237,13 @@ def updateDownloadProgress(fileHash, progress):
 
 
 #   4. TODO: File Exchange
-def requestFile(client, username, fileName, fileHash):
+def requestFile(client, username, fileHash):
     """
     Send a request to the tracker server.
     """
-
-    message = "DOWNLOADREQUEST:" + fileName + ":" + fileHash
+    message = "DOWNLOADREQUEST:" + username + ":" + fileHash
     client.send(message.encode("utf-8"))
+    print("File request send")
 
 def sendChunk(fileHash, chunkIndex, chunkData):
     """
@@ -257,8 +257,8 @@ def sendChunk(fileHash, chunkIndex, chunkData):
     Returns: None
     """
 
-def downloadFile(client, username, fileName):      
-    requestFile(client, username, fileName)
+#def downloadFile(client, username, fileHash):      
+ #   requestFile(client, fileName)
 
     #connectToPeer(fileHash)
 def uploadFile(client, username, fileName):
@@ -285,6 +285,17 @@ def listenForServerConnection(client, username):
                     fileDict[message[1]] = message[2]
             elif(message[0] == "UPLOAD"):
                 print("Upload state: " + message[1])
+            elif(message[0] == "FILESENDREQUEST"):
+                print("Sending request to client who has the file")
+                try: 
+                    address = message[2]
+                    port = int(message[3])
+                    client.connect((address, port))
+                except ConnectionError:
+                    print("Failed to connect to the peer")
+                print(message)
+            #elif(message[0] == ""):
+
 
         except Exception as e: 
             print(f"Error occured: {e}")
@@ -338,16 +349,32 @@ if __name__ == "__main__":
             
         elif choice == "3":
             print("Download file..")
+            #Just a test case
+            request = "FILELISTREQUEST:"
+            client.send(request.encode("utf-8"))
+            fileHashList = list(fileDict.keys())
+            if(len(fileHashList) > 0):
+                print(fileHashList)
+                fileHash = fileHashList[0]
+                requestFile(client, username, fileHash)
+            
+            #if(len(fileHashList) > 0):
+            #    print(fileHashList)
+             #   fileHash = fileHashList[0]
+              #  print(fileHash)
+                #requestFile(client, username, fileHash)
 
             #fileName = input("Give file name: ")
             #fileHash = 
-            downloadFile(client, username, fileName)
-            
-        
+            #downloadFile(client, username, fileName)
         elif choice == "0":
-         #   unregisterPeer(username)
             isAlive = False
-            print("Thank you for using this very cool app.")
+            message = "DISCONNECT:" + username
+            client.send(message.encode("utf-8"))
+            client.close()
             break
         else:
             print("Read the options again and give a new choice.")
+        #print("Thank you for using this very cool app.")
+        #client.close()
+        #sys.exit(0)
