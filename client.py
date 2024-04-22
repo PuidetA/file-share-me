@@ -11,7 +11,7 @@ onDragEnter(): Handles when a user drags a file into the designated area.
 onDragLeave(): Handles when the dragged file leaves the drop area.
 onDrop(filePath): Triggered when the file is dropped. Initiates calculateFileHash() and prepares for sharing.
 displayFileList(): Updates the UI with the list of files available for download.
-shareFileList(fileList): Triggered when displayFileList() method from another peer requests a list of files.
+shareFileList(fileList): Triggered when displayFileList() function from another peer requests a list of files.
 updateDownloadProgress(fileHash, progress): Visually displays download progress of a file.
 
 
@@ -69,7 +69,7 @@ reassembleFile(fileHash): Combines chunks into the complete file after downloadi
 
 displayFileList(): Updates the UI with the list of files available for download from other peer.
 updateFileList(): Updates the file list to reflect new files that are added to the folder.
-shareFileList(fileList): Triggered when displayFileList() method from another peer requests a list of files.
+shareFileList(fileList): Triggered when displayFileList() function from another peer requests a list of files.
 updateDownloadProgress(fileHash, progress): Visually displays download progress of a file (or how many chunks are left to be downloaded).
 
 
@@ -88,8 +88,11 @@ downloadFile(fileHash): Get peer list, coordinate requests, and reassemble chunk
 
 import hashlib # Can be used for generating hash values.
 import os # Can be used for file operations.
-import tkinter as ttk # Can be used for GUI.
-import customtkinter as ctk # Can be used for GUI.
+import tkinter as tk #Tkinter is a standard library used for GUI development.
+from tkinter import ttk # for tkinter widget in charge of making a treeview
+import customtkinter as ctk #For modernized tkinter GUI
+from tkinter import filedialog #For local directory selection
+import sv_ttk #credit to: rdbende from github for the ttk theme.
 
 #TODO: Implement the functions below.
 
@@ -99,6 +102,8 @@ import customtkinter as ctk # Can be used for GUI.
 
 fileList = []       # List of files available for sharing.
 connectedPeer = ""  # The peer to which the client is connected.
+
+testPath = "" #Test path for the locally stored files
 
 
 #   1. TODO: File Handling
@@ -141,7 +146,7 @@ def reassembleFile(fileHash):
 
 
 #   2. TODO: User Interface (UI)
-def displayFileList():
+def displayFileList(givenDirectoryPath, listbox):
     """
     Updates the UI with the list of files available for download from other peers. E.g. displays a list of files in a window.
 
@@ -149,8 +154,15 @@ def displayFileList():
 
     Returns: None
     """
+    listbox.delete(0, 'end') #Clears the listbox before adding files to it. This is to ensure that only the files in the selected directory are displayed. (also to avoid duplicating the same directory if the user runs the command multiple times.)
+    #testList = ["file1.txt", "file2.txt", "file3.txt", "file4.txt"] #Test list of files for sharing
+    files=[file for file in os.listdir(givenDirectoryPath) if os.path.isfile(os.path.join(givenDirectoryPath, file))]
+    for file in files: #Get files and insert them into the listbox. Uncomment testList and replace "files" with "testList" if you want to test the function without having to select a directory.
+        listbox.insert('end', file)
+    
 
 def updateFileList():
+    #TODO: rewrite this. Requirements changed. This functionality needs to exist, but the implementation will be different.
     """
     Updates the file list to reflect new files that are added to the folder. i.e. a button that triggers the update and adds it to fileList = [].
 
@@ -160,8 +172,9 @@ def updateFileList():
     """
 
 def shareFileList(fileList):
+    #TODO: rewrite this. Requirements changed. This functionality needs to exist, but the implementation will be different.
     """
-    Triggered when displayFileList() method from another peer requests a list of files.
+    Triggered when displayFileList() function from another peer requests a list of files.
 
     Parameters:
     - fileList: The list of files available for sharing. E.g. ["file1.txt", "file2.txt"].
@@ -169,8 +182,10 @@ def shareFileList(fileList):
     Returns: None
     """
 
-def updateDownloadProgress(fileHash, progress):
+def updateDownloadProgress(fileHash, progress): 
+    #TODO: rewrite this. Requirements changed. This functionality needs to exist, but the implementation will be different.
     """
+    
     Visually displays download progress of a file (or how many chunks are left to be downloaded).
 
     Parameters:
@@ -206,11 +221,14 @@ def main():
 
     commandFrame=ctk.CTkFrame(root, width=140, corner_radius=0) #Frame in which the command buttons and entries are placed in
     commandFrame.grid(row=0, column=0, sticky="nsew", rowspan=4) #Places the commandFrame in the main window
-    commandFrame.grid_rowconfigure(6, weight=1) #Configures the row of the commandFrame
+    commandFrame.grid_rowconfigure(12, weight=1) #Configures the row of the commandFrame
 
     ## commandFrame widgets
+    #Section covers the intro text and places it in the commandFrame at the top
     introText = ctk.CTkLabel(commandFrame, text="File Sharing Application Text", corner_radius=10)
     introText.grid(row=0, column=0)
+
+    #Section covers the connect button and the entry widgets for the IP address and port number
     connectInstructionText = ctk.CTkLabel(commandFrame, text="Enter IP address and port number to connect to")
     connectInstructionText.grid(row=1, column=0)
     connectEntryIP = ctk.CTkEntry(commandFrame, placeholder_text="IP Address")
@@ -221,6 +239,21 @@ def main():
     connectButton.grid(row=4, column=0, pady=10)
 
 
+    #Section covers:
+    #1. The "Absolute file path" entry widget to paste the absolute path to the local directory.
+    #2. The "Select directory" button which runs commands that let you choose a directory from your computer and pastes it into the entry widget (it clears the text box before pasting).
+    #3. The "Enter" button to get the absolute directory path from the entry widget and display the files via displayFileList(*) function.
+    filepathInstructionText = ctk.CTkLabel(commandFrame, text="Enter the path of the file to select and view")
+    filepathInstructionText.grid(row=5, column=0)
+    filepathEntry = ctk.CTkEntry(commandFrame, placeholder_text="Absolute file path")
+    filepathEntry.grid(row=6, column=0)
+    #File selection button - opens a file dialog to select a file
+    filepathEntryDirectorySelectButton = ctk.CTkButton(commandFrame, text="Select directory", command=lambda: selectLocalDirectory(filepathEntry)) 
+    filepathEntryDirectorySelectButton.grid(row=7, column=0, pady=2)
+    selectButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: displayFileList(filepathEntry.get(), listbox))
+    selectButton.grid(row=8, column=0, pady=10)
+
+
 
     ### resultsFrame
 
@@ -228,11 +261,42 @@ def main():
     resultsFrame.grid(row=0, column=4, sticky="NESW", rowspan=4, columnspan=2) #Places the resultsFrame in the main window
     resultsFrame.grid_rowconfigure(4, weight=3) #Configures the row of the resultsFrame
 
+    ## resultsFrame widgets 
+    
+    #Listbox widget for displaying the files
+    listbox = tk.Listbox(resultsFrame)
+    listbox.pack(side='left', fill='both', expand=True)
 
-    ## resultsFrame widgets
+    # Scrollbar widget for the listbox widget that allows the user to scroll through the list
+    scrollbar = ttk.Scrollbar(resultsFrame, orient='vertical', command=listbox.yview)
+    scrollbar.pack(side='right', fill='y')
+    # Configure listbox to use scrollbar by setting the yscrollcommand option
+    listbox['yscrollcommand'] = scrollbar.set
 
-    #starts the UI (mainloop)
+
+    ### Set theme to Sun Valley. Mostly for the scrollbar and listbox widgets.
+    sv_ttk.set_theme("dark") 
+
+    ### Starts the UI (mainloop)
     root.mainloop()
+
+def selectLocalDirectory(filepathEntry):
+    """
+    Function to select a local directory for file sharing.
+
+    Parameters: filepathEntry - Entry widget for the file path.
+
+    Returns: Absolute path of the selected directory.
+    """
+    directoryPath = filedialog.askdirectory() #Opens a dialog box to select a directory and assigns the selected directory to directoryPath
+    if directoryPath:  # Check if a directory was selected
+        filepathEntry.delete(0, tk.END)  # Clear existing content in the entry
+        filepathEntry.insert(0, directoryPath)  # Insert the new path
+
+
+    """directoryPath = filedialog.askdirectory() #Opens a dialog box to select a directory and assigns the selected directory to directoryPath
+    return directoryPath"""
+
 
 def registerPeerButton(): #Function to handle the connect button
     pass
