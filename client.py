@@ -89,6 +89,7 @@ downloadFile(fileHash): Get peer list, coordinate requests, and reassemble chunk
 import hashlib # Can be used for generating hash values.
 import os # Can be used for file operations.
 import sys
+import time
 import socket
 import threading
 from pysondb import db
@@ -96,15 +97,13 @@ from pysondb import db
 # Source 1) Implementing peer-to-peer network in Python is based on this tutorial: https://www.linkedin.com/pulse/implementing-peer-to-peer-data-exchange-inpython-luis-soares-m-sc-/
 # Source 2) Usage of sockets is based on this: https://www.youtube.com/watch?v=YwWfKitB8aA
 # Source 3) Getting public ip address: https://stackoverflow.com/questions/2311510/getting-a-machines-external-ip-address-with-python
-
+# + Documentations of each used library :D
 #TODO: Add a list to store all the available files for sharing. i.e. fileList = []
 
 fileDict = {}       # List of files available for sharing.
 connectedPeers = [] # List of connected peers in the network
 connectedPeer = ""  # The peer to which the client is connected.
 isAlive = False
-# Based on Source 1)
-
 filesDB = db.getDb("filesDB.json")
 
 #   1. TODO: File Handling
@@ -118,20 +117,10 @@ def calculateFileHash(filePath):
     Returns:
     - hashValue: The calculated hash value for the file. E.g. "a1b2c3d4".
     """
-        # Initializing the sha1() method
-    sha1 = hashlib.sha1()
+    # Source :
+    with open(filePath, "rb", buffering=0) as file: 
+        digest = hashlib.file_digest(file, "sha256")
 
-    # Passing the byte stream as an argument
-    sha1.update(filePath)
-
-    # Make a hexadecimal form hash of the given byte stream
-    hashValue = sha1.hexdigest()
-    print(hashValue)
-
-    # Source 2:
-    with open(filePath, "rb") as file: 
-        digest = hashlib.file_digest(file, "sha254")
-    
     hashValue = digest.hexdigest() 
     
     return hashValue
@@ -173,7 +162,7 @@ def divideFileIntoChunks(filePath, chunkSize):
     return chunkPaths
 
 
-def reassembleFile(fileHash, chunkPaths):
+def reassembleFile(fileHash, fileName, chunkPaths):
     """
     Combines chunks into the complete file after downloading.
 
@@ -183,7 +172,7 @@ def reassembleFile(fileHash, chunkPaths):
     Returns:
     - filePath: The path to the reassembled file. E.g. "C:/Users/User/Documents/file.txt".
     """
-    file_name = "imageCopy.png" # Kovakoodattu :D Kato miten menee lopullisessa työssä
+    file_name = fileName # Kovakoodattu :D Kato miten menee lopullisessa työssä
     current_directory = os.getcwd()
     path_reassembled = os.path.join(current_directory, file_name)
     file_reassembled = open(path_reassembled, "ab")
@@ -202,7 +191,10 @@ def reassembleFile(fileHash, chunkPaths):
     file_reassembled.close()
     filePath = file_reassembled 
     return filePath
-
+def getFilePath(fileName):
+    current_directory = os.getcwd() + "/files"
+    path = os.path.join(current_directory, fileName)
+    return path
 #   2. TODO: User Interface (UI)
 def displayFileList():
     """
@@ -244,40 +236,13 @@ def updateDownloadProgress(fileHash, progress):
     """
 
 
-#   3. TODO: Peer Management (Aino)
-# NewPeer class is going to be used and is based on source 1!
-def registerPeer(name, ip, port):
-    """
-    Register a peer with name and port number.
-    Both sides have to do it (or only one depending on implementation. Either works.).
-    Parameters: name, port
-
-    Returns: None
-    """
-    #hostSocket = NewPeer(name, ip, port)
-    #hostSocket.start()
-    #connectedPeers.append(hostSocket)
-    #print("Peer registered successfully!")
-   # return hostSocket
-
-def unregisterPeer(name):
-    """
-    Unregister the current peer. i.e. make the connectedPeer = "".
-    Parameters: name
-    Returns: None
-    """
-    #for peer in connectedPeers:
-     #   if(peer.getName() == name):
-      #      peer.socket.close()
-       #     connectedPeers.remove(peer)
-
-
 #   4. TODO: File Exchange
-def requestFile(client, username, fileName):
+def requestFile(client, username, fileName, fileHash):
     """
     Send a request to the tracker server.
     """
-    message = "REQUEST:" + username + ":" + fileName
+
+    message = "DOWNLOADREQUEST:" + fileName + ":" + fileHash
     client.send(message.encode("utf-8"))
 
 def sendChunk(fileHash, chunkIndex, chunkData):
@@ -297,14 +262,11 @@ def downloadFile(client, username, fileName):
 
     #connectToPeer(fileHash)
 def uploadFile(client, username, fileName):
-    #calculateFileHash()
-    #hash ="asmiwfmiaxbuj"
-    fileHash = calculateFileHash()
-    request = "UPLOADREQUEST:" + fileHash + ":" + username + ":" + fileName
+    filePath = getFilePath(fileName)
+    fileHash = calculateFileHash(filePath)
+    request = "UPLOADREQUEST:" + username + ":" + fileName + ":" + fileHash
     client.send(request.encode("utf-8"))
-    #file = {"hash": hash, "owner": username, "fileName": fileName}
-
-    #filesDB.add(file)
+    print("Upload request sent successfully")
     #Here client uploads the name of file they have which is stored to filesDB. 
 
 def connectToTargetServer(client, address, port):
@@ -315,21 +277,29 @@ def connectToTargetServer(client, address, port):
         print("Exception occurred {e}")
 
 def listenForServerConnection(client, username):
-    while isAlive:
-        try: 
-            message = client.recv(1024).decode("utf-8")
-            #if(message == "FILEREQUEST"):
-                
-             #   client.send(bytes(username, "utf-8"))
+    while True:
+        try:
+            message = client.recv(1024).decode("utf-8").split(":")
+            if(message[0] == "FILELIST"):
+                if (message[1] not in fileDict):
+                    fileDict[message[1]] = message[2]
+            elif(message[0] == "UPLOAD"):
+                print("Upload state: " + message[1])
 
-            #elif():
         except Exception as e: 
-            print(e)
+            print(f"Error occured: {e}")
+            fileDict.clear()
+            break
+        
 
 #TODO: Add in the functions from above to the main below to make them work.
 # Main
-
-
+def printFileList():
+    print(fileDict)
+    index = 0
+    for hash in fileDict: 
+       print(fileDict[hash], index)
+       index = index + 1
 if __name__ == "__main__":
     chunk_size = 1024 # Chunk size will be approximately 1 kb (1024 bytes)
     chunkPaths = []
@@ -338,7 +308,8 @@ if __name__ == "__main__":
     # Specifying the new user as part of peer network
     serverIP = sys.argv[1]
     port = int(sys.argv[2])
-    fileDict = {"hash1": ["image.png", "peername1"], "hash2": ["start.png", "peername2"]}
+    print(fileDict)
+    #fileDict = {"hash1": ["image.png", "peername1"], "hash2": ["start.png", "peername2"]}
     username = input("Give your username: ")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connectToTargetServer(client, serverIP, port)
@@ -353,19 +324,24 @@ if __name__ == "__main__":
         print("0) Exit")
         choice = input("your choice: ")
         if choice == "1":
+            # Request list of files from the target server
+            request = "FILELISTREQUEST:"
+            client.send(request.encode("utf-8"))
             print("List of files..")
+            printFileList()
+
         elif choice == "2":
             print("Upload file..")
-            fileName = input("Give file name: ")
-            uploadFile()
+            fileName = input("Give file name: ") # This will be asked in UI later
+            #filePath = reassembleFile(None, fileName, chunkPaths)
+            uploadFile(client, username, fileName)
+            
         elif choice == "3":
             print("Download file..")
-            fileName = input("Give file name: ")
+
+            #fileName = input("Give file name: ")
+            #fileHash = 
             downloadFile(client, username, fileName)
-        
-         #   # file = input("Give name of the file you want to save the fixed file as: ")
-          #  filePath = reassembleFile(chunkPaths)
-           # print(filePath)
             
         
         elif choice == "0":
