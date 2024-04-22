@@ -90,9 +90,9 @@ import hashlib # Can be used for generating hash values.
 import os # Can be used for file operations.
 import sys
 import time
+import random
 import socket
 import threading
-from pysondb import db
 #TODO: Implement the functions below.
 # Source 1) Implementing peer-to-peer network in Python is based on this tutorial: https://www.linkedin.com/pulse/implementing-peer-to-peer-data-exchange-inpython-luis-soares-m-sc-/
 # Source 2) Usage of sockets is based on this: https://www.youtube.com/watch?v=YwWfKitB8aA
@@ -104,7 +104,7 @@ fileDict = {}       # List of files available for sharing.
 connectedPeers = [] # List of connected peers in the network
 connectedPeer = ""  # The peer to which the client is connected.
 isAlive = False
-filesDB = db.getDb("filesDB.json")
+#filesDB = db.getDb("filesDB.json")
 
 #   1. TODO: File Handling
 def calculateFileHash(filePath):
@@ -241,10 +241,10 @@ def requestFile(client, username, fileHash):
     """
     Send a request to the tracker server.
     """
-    message = "DOWNLOADREQUEST:" + username + ":" + fileHash
+    message = "DOWNLOADREQUEST:" + username + ":" + fileHash + ":" + str(newPort) + ":" + newAddress
     client.send(message.encode("utf-8"))
     print("File request send")
-
+   
 def sendChunk(fileHash, chunkIndex, chunkData):
     """
     Send a chunk in response.
@@ -275,8 +275,15 @@ def connectToTargetServer(client, address, port):
         client.send(bytes(username, "utf-8"))
     except Exception as e: 
         print("Exception occurred {e}")
-
-def listenForServerConnection(client, username):
+def connectToPeer(client, address, port, fileHash):
+    client.detach()
+    print("Connecting..")
+    try: 
+        client.connect_ex((address, port))
+        client.send("TESTIPRKL".encode("utf-8"))  
+    except Exception as e: 
+        print(e)
+def listenForServerConnection(client, username, newAddress, newPort):
     while True:
         try:
             message = client.recv(1024).decode("utf-8").split(":")
@@ -286,22 +293,35 @@ def listenForServerConnection(client, username):
             elif(message[0] == "UPLOAD"):
                 print("Upload state: " + message[1])
             elif(message[0] == "FILESENDREQUEST"):
-                print("Sending request to client who has the file")
+                print("Received request for sending file")
                 try: 
                     address = message[2]
                     port = int(message[3])
-                    client.connect((address, port))
+                    fileHash = message[1]
+                    newSenderSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    #newConnection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    newSenderSocket.bind((newAddress, newPort))
+                    newSenderSocket.connect((address,port))
+                    print()
+                    #thread = threading.Thread(target=connectToPeer, args=(client, address, port, fileHash, ))
+                    #thread.start()
+                    #print(peerSocket)
                 except ConnectionError:
                     print("Failed to connect to the peer")
-                print(message)
-            #elif(message[0] == ""):
-
-
         except Exception as e: 
             print(f"Error occured: {e}")
             fileDict.clear()
             break
-        
+def listenToPeerConnections(host):
+    print("Listening...")
+    print(host)
+    host.recv(1024).decode("utf-8")
+    #while True: 
+        #try:
+    #message = host.recv(1024).decode("utf-8").split(":")
+    #print(message)
+    #except Exception as e: 
+     #       print(e)
 
 #TODO: Add in the functions from above to the main below to make them work.
 # Main
@@ -319,12 +339,15 @@ if __name__ == "__main__":
     # Specifying the new user as part of peer network
     serverIP = sys.argv[1]
     port = int(sys.argv[2])
-    print(fileDict)
     #fileDict = {"hash1": ["image.png", "peername1"], "hash2": ["start.png", "peername2"]}
     username = input("Give your username: ")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    clientAsServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    newAddress = socket.gethostbyname(socket.gethostname())
+    newPort = random.randint(49152, 65534)
+    clientAsServer.bind((newAddress, newPort))
     connectToTargetServer(client, serverIP, port)
-    thread = threading.Thread(target=listenForServerConnection, args=(client, username))
+    thread = threading.Thread(target=listenForServerConnection, args=(client, username, newAddress, newPort, ))
     thread.start()
     isAlive = True
     while True:
@@ -357,6 +380,11 @@ if __name__ == "__main__":
                 print(fileHashList)
                 fileHash = fileHashList[0]
                 requestFile(client, username, fileHash)
+                thread2 = threading.Thread(target=listenToPeerConnections, args=(clientAsServer,))
+                thread2.start()
+                #requestThread =  threading.Thread(target=requestFile, args=(client, , newAddress, newPort, username, fileHash))
+                #requestThread.start()
+                #requestFile(client, username, fileHash)
             
             #if(len(fileHashList) > 0):
             #    print(fileHashList)
