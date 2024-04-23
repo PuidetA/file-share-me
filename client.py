@@ -104,6 +104,8 @@ fileDict = {}       # List of files available for sharing.
 connectedPeers = [] # List of connected peers in the network
 connectedPeer = ""  # The peer to which the client is connected.
 isAlive = False
+CHUNK_SIZE = 1024
+lock = threading.Lock()
 #filesDB = db.getDb("filesDB.json")
 
 #   1. TODO: File Handling
@@ -126,7 +128,7 @@ def calculateFileHash(filePath):
     return hashValue
 
 
-def divideFileIntoChunks(filePath, chunkSize):
+def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
     """
     Splits the file into smaller chunks for efficient transfer and resuming downloads.
 
@@ -137,30 +139,28 @@ def divideFileIntoChunks(filePath, chunkSize):
     Returns:
     - chunkPaths: A list containing the paths to the generated chunks. E.g. ["C:/Users/User/Documents/file_chunk1.txt", "C:/Users/User/Documents/file_chunk2.txt"].
     """
-    chunkPaths = []
-
-    file = open(filePath, "rb")
-    chunk = 0
-    byte = file.read(chunkSize) 
-    while byte:
-        
-        file_temp = "chunk" + str(chunk) + ".txt"
-        file_chunk = open(file_temp, "wb")
-        file_chunk.write(byte)
-        file_chunk.close()
-        
-        current_directory = os.getcwd()
-        chunk_path = os.path.join(current_directory, file_temp)
-
-        # Tehdäänkö hash tässä vaiheessa vai jossain muualla?
-        # chunk_path_hashed = calculateFileHash(chunk_path)
-        chunkPaths.append(chunk_path)
-            
-        byte = file.read(chunkSize)
-         
-        chunk += 1
-    return chunkPaths
-
+    lock.acquire(blocking=True)
+    try:
+        file = open(filePath, "rb")
+        chunk = 0
+        byte = file.read(chunkSize) 
+        while byte:
+            print("Sending chunk", chunk)
+            client.send(byte)
+            byte = file.read(chunkSize)
+            chunk += 1
+        file.close()
+        client.send(b"<END>")
+        #client.shutdown(socket.SHUT_WR)
+        #lock.release()
+        print("File send to the server")
+        lock.release()
+    except FileNotFoundError:
+        print("Check the file name and try again")
+        lock.release()
+    except Exception as e: 
+        print(f"Try again, error: {e}")
+        lock.release()
 
 def reassembleFile(fileHash, fileName, chunkPaths):
     """
@@ -172,7 +172,7 @@ def reassembleFile(fileHash, fileName, chunkPaths):
     Returns:
     - filePath: The path to the reassembled file. E.g. "C:/Users/User/Documents/file.txt".
     """
-    file_name = fileName # Kovakoodattu :D Kato miten menee lopullisessa työssä
+    file_name = fileName
     current_directory = os.getcwd()
     path_reassembled = os.path.join(current_directory, file_name)
     file_reassembled = open(path_reassembled, "ab")
@@ -192,9 +192,12 @@ def reassembleFile(fileHash, fileName, chunkPaths):
     filePath = file_reassembled 
     return filePath
 def getFilePath(fileName):
-    current_directory = os.getcwd() + "/files"
-    path = os.path.join(current_directory, fileName)
-    return path
+    if(fileName):
+        current_directory = os.getcwd() + "\\files"
+        path = os.path.join(current_directory, fileName)
+        return path
+    else: 
+        return None
 #   2. TODO: User Interface (UI)
 def displayFileList():
     """
@@ -235,7 +238,6 @@ def updateDownloadProgress(fileHash, progress):
     Returns: None
     """
 
-
 #   4. TODO: File Exchange
 def requestFile(client, username, fileHash):
     """
@@ -244,30 +246,30 @@ def requestFile(client, username, fileHash):
     message = "DOWNLOADREQUEST:" + username + ":" + fileHash + ":" + str(newPort) + ":" + newAddress
     client.send(message.encode("utf-8"))
     print("File request send")
-   
-def sendChunk(fileHash, chunkIndex, chunkData):
+
+def sendChunk(client, chunkPath):
     """
     Send a chunk in response.
 
     Parameters:
-    - fileHash: The hash value identifying the file for which the chunk is sent. E.g. "a1b2c3d4".
-    - chunkIndex: The index of the chunk being sent. E.g. 0.
+    - client: socket that sends the data
     - chunkData: The data of the chunk being sent.
-
     Returns: None
     """
+    chunkFile = open(chunkPath, "rb")
+    #chunkContent = chunkFile.read(1024)
+    client.sendfile(chunkFile)
+    #chunkFile.close()
 
-#def downloadFile(client, username, fileHash):      
- #   requestFile(client, fileName)
-
-    #connectToPeer(fileHash)
 def uploadFile(client, username, fileName):
     filePath = getFilePath(fileName)
-    fileHash = calculateFileHash(filePath)
-    request = "UPLOADREQUEST:" + username + ":" + fileName + ":" + fileHash
-    client.send(request.encode("utf-8"))
-    print("Upload request sent successfully")
-    #Here client uploads the name of file they have which is stored to filesDB. 
+    if (filePath):
+        fileHash = calculateFileHash(filePath)
+        request = "UPLOADREQUEST:" + username + ":" + fileName + ":" + fileHash
+        client.send(request.encode("utf-8"))
+        print("Upload request sent successfully")
+    else:
+        print("File path not found!")
 
 def connectToTargetServer(client, address, port):
     try:
@@ -275,15 +277,22 @@ def connectToTargetServer(client, address, port):
         client.send(bytes(username, "utf-8"))
     except Exception as e: 
         print("Exception occurred {e}")
-def connectToPeer(client, address, port, fileHash):
-    client.detach()
-    print("Connecting..")
-    try: 
-        client.connect_ex((address, port))
-        client.send("TESTIPRKL".encode("utf-8"))  
-    except Exception as e: 
-        print(e)
-def listenForServerConnection(client, username, newAddress, newPort):
+
+def sendFileDictRequest(client):
+    print(lock.locked())
+    if(lock.locked()):
+        print("Waiting for lock to release")
+        time.sleep(100)
+    else:
+        print("Requesting file list..")
+        try:
+            while True:
+                request = "FILELISTREQUEST:"
+                client.send(request.encode("utf-8"))
+                time.sleep(3)
+        except Exception as error: 
+            print(error)
+def listenForServerConnection(client):
     while True:
         try:
             message = client.recv(1024).decode("utf-8").split(":")
@@ -292,36 +301,35 @@ def listenForServerConnection(client, username, newAddress, newPort):
                     fileDict[message[1]] = message[2]
             elif(message[0] == "UPLOAD"):
                 print("Upload state: " + message[1])
+            elif(message[0] == "NEWFILE"):
+                client.send("FILELISTREQUEST".encode("utf-8"))
             elif(message[0] == "FILESENDREQUEST"):
-                print("Received request for sending file")
-                try: 
-                    address = message[2]
-                    port = int(message[3])
-                    fileHash = message[1]
-                    newSenderSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    #newConnection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    newSenderSocket.bind((newAddress, newPort))
-                    newSenderSocket.connect((address,port))
-                    print()
-                    #thread = threading.Thread(target=connectToPeer, args=(client, address, port, fileHash, ))
-                    #thread.start()
-                    #print(peerSocket)
-                except ConnectionError:
-                    print("Failed to connect to the peer")
+                #lock.acquire(blocking=True)
+                print("Received request for sending file to the server")
+                fileHash = message[1]
+                fileName = None
+                print("File dict when sending file:", fileDict)
+                print(fileDict[fileHash])
+                fileName = fileDict[fileHash]
+                if(fileName):
+                    filePath = getFilePath(fileName)
+                    if(filePath != None):
+                        msg = "FILE:" + fileHash
+                        client.send(msg.encode("utf-8"))
+                        divideFileIntoChunksAndSendChunks(client, filePath, CHUNK_SIZE)
+            elif(message[0] == "FILE"):
+                print("Starting to receive file..")
+                file = open("file.png", "wb")
+                file_message = client.recv(1024)
+                while file_message:
+                    file.write(file_message)
+                    file_message = client.recv(1024)
+                file.close()
+                client.send(b'<END>')
         except Exception as e: 
             print(f"Error occured: {e}")
             fileDict.clear()
             break
-def listenToPeerConnections(host):
-    print("Listening...")
-    print(host)
-    host.recv(1024).decode("utf-8")
-    #while True: 
-        #try:
-    #message = host.recv(1024).decode("utf-8").split(":")
-    #print(message)
-    #except Exception as e: 
-     #       print(e)
 
 #TODO: Add in the functions from above to the main below to make them work.
 # Main
@@ -347,9 +355,14 @@ if __name__ == "__main__":
     newPort = random.randint(49152, 65534)
     clientAsServer.bind((newAddress, newPort))
     connectToTargetServer(client, serverIP, port)
-    thread = threading.Thread(target=listenForServerConnection, args=(client, username, newAddress, newPort, ))
-    thread.start()
+    threadListenServer = threading.Thread(target=listenForServerConnection, args=(client,))
+    #threadFileDict = threading.Thread(target=sendFileDictRequest, args=(client, ))
+    #threadFileDict.start()
+    threadListenServer.start()
+    #threadFileDict.join()
+    #threadListenServer.join()
     isAlive = True
+    listUpdate = False
     while True:
         print("What do you want to do?")
         print("1) Print file list")
@@ -357,7 +370,7 @@ if __name__ == "__main__":
         print("3) Download file")
         print("0) Exit")
         choice = input("your choice: ")
-        if choice == "1":
+        if choice == "1" or listUpdate:
             # Request list of files from the target server
             request = "FILELISTREQUEST:"
             client.send(request.encode("utf-8"))
@@ -366,35 +379,23 @@ if __name__ == "__main__":
 
         elif choice == "2":
             print("Upload file..")
+            print("Main choice 2:", fileDict)
             fileName = input("Give file name: ") # This will be asked in UI later
             #filePath = reassembleFile(None, fileName, chunkPaths)
             uploadFile(client, username, fileName)
+            listUpdate = True
             
         elif choice == "3":
             print("Download file..")
-            #Just a test case
+            print("Main choice 3: ", fileDict)
             request = "FILELISTREQUEST:"
             client.send(request.encode("utf-8"))
             fileHashList = list(fileDict.keys())
             if(len(fileHashList) > 0):
-                print(fileHashList)
+                #print(fileHashList)
                 fileHash = fileHashList[0]
-                requestFile(client, username, fileHash)
-                thread2 = threading.Thread(target=listenToPeerConnections, args=(clientAsServer,))
-                thread2.start()
-                #requestThread =  threading.Thread(target=requestFile, args=(client, , newAddress, newPort, username, fileHash))
-                #requestThread.start()
-                #requestFile(client, username, fileHash)
+                requestFile(client, username, fileHash)  
             
-            #if(len(fileHashList) > 0):
-            #    print(fileHashList)
-             #   fileHash = fileHashList[0]
-              #  print(fileHash)
-                #requestFile(client, username, fileHash)
-
-            #fileName = input("Give file name: ")
-            #fileHash = 
-            #downloadFile(client, username, fileName)
         elif choice == "0":
             isAlive = False
             message = "DISCONNECT:" + username
@@ -403,6 +404,3 @@ if __name__ == "__main__":
             break
         else:
             print("Read the options again and give a new choice.")
-        #print("Thank you for using this very cool app.")
-        #client.close()
-        #sys.exit(0)
