@@ -139,7 +139,6 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
     Returns:
     - chunkPaths: A list containing the paths to the generated chunks. E.g. ["C:/Users/User/Documents/file_chunk1.txt", "C:/Users/User/Documents/file_chunk2.txt"].
     """
-    lock.acquire(blocking=True)
     try:
         file = open(filePath, "rb")
         chunk = 0
@@ -150,17 +149,14 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
             byte = file.read(chunkSize)
             chunk += 1
         file.close()
+        client.shutdown(socket.SHUT_WR)
         client.send(b"<END>")
-        #client.shutdown(socket.SHUT_WR)
         #lock.release()
         print("File send to the server")
-        lock.release()
     except FileNotFoundError:
         print("Check the file name and try again")
-        lock.release()
     except Exception as e: 
         print(f"Try again, error: {e}")
-        lock.release()
 
 def reassembleFile(fileHash, fileName, chunkPaths):
     """
@@ -278,20 +274,20 @@ def connectToTargetServer(client, address, port):
     except Exception as e: 
         print("Exception occurred {e}")
 
-def sendFileDictRequest(client):
-    print(lock.locked())
-    if(lock.locked()):
-        print("Waiting for lock to release")
-        time.sleep(100)
-    else:
-        print("Requesting file list..")
-        try:
-            while True:
-                request = "FILELISTREQUEST:"
-                client.send(request.encode("utf-8"))
-                time.sleep(3)
-        except Exception as error: 
-            print(error)
+#def sendFileDictRequest(client):
+ #   print(lock.locked())
+  #  if(lock.locked()):
+   #     print("Waiting for lock to release")
+    #    time.sleep(100)
+   # else:
+    #    print("Requesting file list..")
+     #   try:
+      #      while True:
+       #         request = "FILELISTREQUEST:"
+        #        client.send(request.encode("utf-8"))
+         #       time.sleep(3)
+        #except Exception as error: 
+         #   print(error)
 def listenForServerConnection(client):
     while True:
         try:
@@ -309,23 +305,24 @@ def listenForServerConnection(client):
                 fileHash = message[1]
                 fileName = None
                 print("File dict when sending file:", fileDict)
-                print(fileDict[fileHash])
-                fileName = fileDict[fileHash]
-                if(fileName):
-                    filePath = getFilePath(fileName)
-                    if(filePath != None):
-                        msg = "FILE:" + fileHash
-                        client.send(msg.encode("utf-8"))
-                        divideFileIntoChunksAndSendChunks(client, filePath, CHUNK_SIZE)
-            elif(message[0] == "FILE"):
-                print("Starting to receive file..")
-                file = open("file.png", "wb")
-                file_message = client.recv(1024)
-                while file_message:
-                    file.write(file_message)
+                if(len(fileDict) > 0):
+                    print(fileDict[fileHash])
+                    fileName = fileDict[fileHash]
+                    if(fileName):
+                        filePath = getFilePath(fileName)
+                        if(filePath != None):
+                            msg = "FILE:" + fileHash
+                            client.send(msg.encode("utf-8"))
+                            divideFileIntoChunksAndSendChunks(client, filePath, CHUNK_SIZE)
+                elif(message[0] == "FILE"):
+                    print("Starting to receive file..")
+                    file = open("file.png", "wb")
                     file_message = client.recv(1024)
-                file.close()
-                client.send(b'<END>')
+                    while file_message:
+                        file.write(file_message)
+                        file_message = client.recv(1024)
+                    file.close()
+                    client.send(b'<END>')
         except Exception as e: 
             print(f"Error occured: {e}")
             fileDict.clear()
