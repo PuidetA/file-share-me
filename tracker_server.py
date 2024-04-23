@@ -41,7 +41,7 @@ def clientDisconnect(nickname):
         fileDB.deleteById(id)
     return None
 
-# 
+# Sends the file list to a client requesting it.
 def sendFileList(client):
         try:
             fileList = fileDB.getAll()
@@ -52,12 +52,10 @@ def sendFileList(client):
             print("\nsendFileList")
             print("Exception occurred:", e)
 
-
 def handle(client, nickname): # handles the clients and connections
     while True:
         try:
             message = client.recv(1024).decode("utf-8").split(":") # message in the form: "REQUEST:FileHash:FileName" for example
-            # print(message)
             if message[0] == "DOWNLOADREQUEST": # Inform uploader for upcoming download request
                 fileHash = message[2]
                 
@@ -86,18 +84,24 @@ def handle(client, nickname): # handles the clients and connections
 
                         file_message = client.recv(1024)
                         while True:
-                            if file_message[0].decode() == "CHUNK":
-                                file_message = client.recv(1024)
-                                if file_message[-5:] == b"<END>":
-                                    chunkList.append(file_message[-5:])
-                                    break
-                                chunkList.append(file_message)
+                            #if file_message[0].decode() == "CHUNK":
+                            file_message = client.recv(1024)
+                            if file_message[-5:] == b"<END>":
+                                chunkList.append(file_message[:-5])
+                                break
+                            chunkList.append(file_message)
                         
                         print("Pituus: ", len(chunkList))
 
                         downloaderSocket.send("FILE".encode("utf-8"))
+                        file = open("file.png", "wb")
                         for chunk in chunkList:
-                            found = chunk.find("FILE".encode())
+                            #print("\nChunk:", chunk.decode())
+                            file.write(chunk)
+                            file_message = client.recv(1024)
+                        file.close()
+                        #for chunk in chunkList:
+                        #    found = chunk.find("FILE".encode())
                             #if found:
                             #    print(chunk)
                             #downloaderSocket.send(file_message)
