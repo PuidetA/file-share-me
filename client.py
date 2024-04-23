@@ -146,11 +146,11 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
         while byte:
             print("Sending chunk", chunk)
             client.send(byte)
-            byte = file.read(chunkSize)
+            byte = file.read(1024)
             chunk += 1
         file.close()
         client.shutdown(socket.SHUT_WR)
-        client.send(b"<END>")
+        #client.send(b"<END>")
         #lock.release()
         print("File send to the server")
     except FileNotFoundError:
@@ -242,6 +242,17 @@ def requestFile(client, username, fileHash):
     message = "DOWNLOADREQUEST:" + username + ":" + fileHash + ":" + str(newPort) + ":" + newAddress
     client.send(message.encode("utf-8"))
     print("File request send")
+    try:
+        file = open("file.txt", "wb")
+        file_message = client.recv(1024)
+        print("Waiting for the file...")
+        while file_message:
+            file.write(file_message)
+            file_message = client.recv(1024)
+        file.close()
+        print("File received")
+    except Exception as e: 
+        print("Error occured {e}")
 
 def sendChunk(client, chunkPath):
     """
@@ -314,15 +325,15 @@ def listenForServerConnection(client):
                             msg = "FILE:" + fileHash
                             client.send(msg.encode("utf-8"))
                             divideFileIntoChunksAndSendChunks(client, filePath, CHUNK_SIZE)
-                elif(message[0] == "FILE"):
-                    print("Starting to receive file..")
-                    file = open("file.png", "wb")
-                    file_message = client.recv(1024)
-                    while file_message:
-                        file.write(file_message)
-                        file_message = client.recv(1024)
-                    file.close()
-                    client.send(b'<END>')
+                #elif(message[0] == "FILE"):
+                 #   print("Starting to receive file..")
+                  #  file = open("file.png", "wb")
+                   # file_message = client.recv(1024)
+                   # while file_message:
+                    #    file.write(file_message)
+                     #   file_message = client.recv(1024)
+                    #file.close()
+                    #client.send(b'<END>')
         except Exception as e: 
             print(f"Error occured: {e}")
             fileDict.clear()
@@ -373,6 +384,7 @@ if __name__ == "__main__":
             client.send(request.encode("utf-8"))
             print("List of files..")
             printFileList()
+            listUpdate = False
 
         elif choice == "2":
             print("Upload file..")
