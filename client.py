@@ -245,30 +245,6 @@ def requestFile(client, username, fileHash):
     message = "DOWNLOADREQUEST:" + username + ":" + fileHash + ":" + str(newPort) + ":" + newAddress
     client.send(message.encode("utf-8"))
     print("File request send")
-    try:
-        fileName = fileDict[fileHash]
-        if(fileName):
-            temp = fileName.split(".")
-            newFileName = temp[0] + "_copy" + "." + temp[1]
-            print(newFileName)
-            #file = open(newFileName, "wb")
-            #file_message = client.recv(1024)
-            print("Waiting for the file...")
-            chunkList = []
-            file_message = client.recv(1024)
-            while file_message:
-                chunkList.append(file_message)
-                print(chunkList)
-                file_message = client.recv(1024)
-            file = open(newFileName, "wb")
-            #with open(newFileName, "wb") as file:
-            for chunk in chunkList:
-                file.write(chunk)
-            print("File received")
-            print("Received chunks: " + str(len(chunkList)))
-    except Exception as e: 
-        print(f"Error occured {e}")
-
 
 # This function sends the information about file which is uploaded to the target server which saves
 # that information into database that is JSON format.
@@ -295,6 +271,7 @@ def listenForServerConnection(client):
         try:
             # Here we receive the message from the tracker server and act according it
             message = client.recv(1024).decode("utf-8").split(":")
+            #print(message)
             if(message[0] == "FILELIST"): # Here we update the list of files
                 if (message[1] not in fileDict):
                     fileDict[message[1]] = message[2]
@@ -316,6 +293,30 @@ def listenForServerConnection(client):
                             msg = "FILE:" + fileHash
                             client.send(msg.encode("utf-8"))
                             divideFileIntoChunksAndSendChunks(client, filePath, CHUNK_SIZE)
+            elif(message[0] == "FILE"):
+                try:
+                    fileHash = message[1]
+                    fileName = fileDict[fileHash]
+                    if(fileName):
+                        temp = fileName.split(".")
+                        newFileName = temp[0] + "_copy" + "." + temp[1]
+                        print(newFileName)
+                        #file = open(newFileName, "wb")
+                        #file_message = client.recv(1024)
+                        print("Waiting for the file...")
+                        chunkList = []
+                        file_message = client.recv(1024)
+                        while file_message:
+                            chunkList.append(file_message)
+                            file_message = client.recv(1024)
+                            file = open(newFileName, "wb")
+                            for chunk in chunkList:
+                                file.write(chunk)
+                            file.close()
+                        print("File received")
+                        print("Received chunks: " + str(len(chunkList)))
+                except Exception as e: 
+                    print(f"Error occured {e}")
         except Exception as e: 
             print(f"Error occured: {e}")
             fileDict.clear()
