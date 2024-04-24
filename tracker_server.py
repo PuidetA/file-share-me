@@ -1,17 +1,17 @@
-# Emma Niemenmaa
-# Created: 3.4.2024
-# Last modified: 3.4.2024
+# DS Final project
+# By: Emma Niemenmaa, Aino Räkköläinen
+# Created: 20.4.2024
+# Last modified: 24.4.2024
 # Sources:
-# 1. Chat app video: https://www.youtube.com/watch?v=3UOyky9sEQY
-# 2. Python socket video: https://www.youtube.com/watch?v=YwWfKitB8aA
 
 import threading
 import socket
 from pysondb import db
+import os
 
 # Create data strucktures for handling clients and connections
-download_queue = {} # In the form: hash: downloaderSocket
-connections = {}
+download_queue = {} # In the form: fileHash: downloaderNickname
+connections = {} # In the form: nickname: clientSocket
 fileDB = db.getDb("fileDB.json")
 
 # Define and start the server
@@ -27,10 +27,10 @@ print("Server is listening...")
 # print(f"Port: {PORT}")
 # print(f"IP: {HOST}")
 
-def broadcast():
-    message = "NEWFILE"
+# Sends a message to all clients
+def broadcast(message):
     for nickname in connections:
-        connections[nickname][0].send(message.encode("utf-8"))
+        connections[nickname].send(message.encode("utf-8"))
 
 # Removes disconnected peer's files from the database
 def clientDisconnect(nickname):
@@ -52,81 +52,105 @@ def sendFileList(client):
             print("\nsendFileList")
             print("Exception occurred:", e)
 
-def handle(client, nickname): # handles the clients and connections
+# Handles message exchange between two clients or client and server.
+def handle(client, nickname):
     while True:
         try:
-            message = client.recv(1024).decode("utf-8").split(":") # message in the form: "REQUEST:FileHash:FileName" for example
-            if message[0] == "DOWNLOADREQUEST": # Inform uploader for upcoming download request
+            # message is a str received from the client. 
+            # It is written in the form: "REQUEST:FileHash:FileName" for example
+            message = client.recv(1024).decode("utf-8").split(":")
+
+            # Inform uploader for upcoming download request.
+            if message[0] == "DOWNLOADREQUEST":
                 fileHash = message[2]
                 
                 # Getting the uploader information from the database and the connections list:
                 fileDict = fileDB.getByQuery({"hash": fileHash})
                 fileUploader = fileDict[0]["owner"]
-
+                 
+                # Add the client requesting the file to the download_queue dictionary.
                 download_queue[fileHash] = nickname
 
+                # Sends a message to the client who has the file to let them know to start sending it.
                 fileRequestMessage = "FILESENDREQUEST:" + fileHash
-                connections[fileUploader][0].send(fileRequestMessage.encode("utf-8"))
+                connections[fileUploader].send(fileRequestMessage.encode("utf-8"))
                 
 
                 
             elif message[0] == "FILE":
                 chunkList = []
-                # counter = 0
                 fileHash = message[1]
+                fileExtension = fileDB.getByQuery({"hash":fileHash})[0]["fileName"].split(".")[1]
+                tempFile = "temp." + fileExtension
 
-                # Finds the downloaders socket from a downloader_queue list
-                for hash in download_queue:
-                    if hash == fileHash:
-                        username = download_queue[hash]
-                        downloaderSocket = connections[username][0]
-                        print(downloaderSocket)
-
+                # Finds the downloaders socket from a downloader_queue dictionary
+                if fileHash in download_queue.keys():
+                    username = download_queue[fileHash]
+                    downloaderSocket = connections[username]
+                    print("downloaderSocket:", downloaderSocket)
+                    print("Nickname:", username)
+                    print("uploaderSocket:", client)
+                    print("Nickname:", nickname)
+                    file_message = client.recv(1024)
+                    while file_message:
+                        chunkList.append(file_message)
                         file_message = client.recv(1024)
-                        while True:
-                            #if file_message[0].decode() == "CHUNK":
-                            file_message = client.recv(1024)
-                            if file_message[-5:] == b"<END>":
-                                chunkList.append(file_message[:-5])
-                                break
-                            chunkList.append(file_message)
                         
-                        print("Pituus: ", len(chunkList))
+                    print(f"File received. {len(chunkList)} packets sent.")
+                    # downloaderSocket.send("FILE".encode("utf-8"))
 
-                        downloaderSocket.send("FILE".encode("utf-8"))
-                        file = open("file.png", "wb")
-                        for chunk in chunkList:
-                            #print("\nChunk:", chunk.decode())
-                            file.write(chunk)
-                            file_message = client.recv(1024)
-                        file.close()
-                        #for chunk in chunkList:
-                        #    found = chunk.find("FILE".encode())
-                            #if found:
-                            #    print(chunk)
-                            #downloaderSocket.send(file_message)
+                    # Writes the received chunks into a temporary file
+                    file = open(tempFile, "wb")
+                    for chunk in chunkList:
+                        file.write(chunk)
+                    file.close()
+                    
+                    # Sends the tempFile to the client requesting the file
+                    file = open(tempFile, "rb")
+                    chunk = file.read(FILESIZE) 
+                    counter = 0
+                    while chunk:
+                        counter += 1
+                        print(chunk)
+                        downloaderSocket.send(chunk)
+                        chunk = file.read(FILESIZE)
+                    file.close()
+                    #for chunk in chunkList:
+                    #    downloaderSocket.send(chunk)
+                    downloaderSocket.shutdown(socket.SHUT_WR)
+                    #os.remove(tempFile)
+                print(f"File sent. {counter} packets sent.")
 
 
+            # Client wants the server to know that they have a file that they can send to other clients upon request.
             elif message[0] == "UPLOADREQUEST":
                 print("upload request")
                 hashList = fileDB.getByQuery({"hash":message[3]})
+                # If hash is not found on the database already, adds the file info to the database
                 if hashList == []:
                     fileDB.add({
                         "hash": message[3],
                         "owner": message[1],
                         "fileName": message[2]
                     })
+                    # A message to client informing about a successful upload
                     client.send("UPLOAD:Successful".encode("utf-8"))
-                    broadcast()
+                    message = "NEWFILE"
+                    # Broadcast to every client to tell them to request an updated file list
+                    broadcast(message)
+                # If the hash can already be found on the database, it won't be added there another time.
                 else:
                     client.send("UPLOAD:Failed".encode("utf-8"))
                 print("upload requestn't")
             
+            # Sends the contents of fileDB to a client requesting it
             elif message[0] == "FILELISTREQUEST":
                 sendFileList(client)
             
+            # Removes the client's files from the database when a client disconnects from the network.
             elif  message[0] == "DISCONNECT":
                 clientDisconnect(nickname)
+                break
                 # print("4:", connections)
 
         except Exception as e:
@@ -136,6 +160,8 @@ def handle(client, nickname): # handles the clients and connections
             # print("3:", connections)
             break
 
+
+# Handles the new clients and connections.
 def server_main():
     while True:
         try:
@@ -145,7 +171,7 @@ def server_main():
             nickname = client.recv(1024).decode("utf-8")
 
             # A dictionary where UNIQUE nicknames for users is the key and value is a list of their files
-            connections[nickname] = [client, address]
+            connections[nickname] = client
 
             print("Nickname of the client is", nickname + "!")
 
@@ -168,6 +194,7 @@ def server_main():
             # print("2:", connections)
             continue
 
-server_main()
+if __name__ == "__main__":
+    server_main()
 
 print("Server is going offline.")
