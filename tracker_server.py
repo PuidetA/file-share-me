@@ -8,10 +8,14 @@ import threading
 import socket
 from pysondb import db
 import os
+import time
 
 # Create data strucktures for handling clients and connections
 download_queue = {} # In the form: fileHash: downloaderNickname
 connections = {} # In the form: nickname: clientSocket
+
+# Recreate the database when server restarts
+os.remove("fileDB.json")
 fileDB = db.getDb("fileDB.json")
 
 # Define and start the server
@@ -76,7 +80,7 @@ def handle(client, nickname):
                 connections[fileUploader].send(fileRequestMessage.encode("utf-8"))
                 
 
-                
+            # Starts sending the file 
             elif message[0] == "FILE":
                 chunkList = []
                 fileHash = message[1]
@@ -87,39 +91,45 @@ def handle(client, nickname):
                 if fileHash in download_queue.keys():
                     username = download_queue[fileHash]
                     downloaderSocket = connections[username]
-                    print("downloaderSocket:", downloaderSocket)
-                    print("Nickname:", username)
-                    print("uploaderSocket:", client)
-                    print("Nickname:", nickname)
+                    uploaderSocket = client
+                    #print("downloaderSocket:", downloaderSocket)
+                    #print("Nickname:", username)
+                    #print("uploaderSocket:", client)
+                    #print("Nickname:", nickname)
                     file_message = client.recv(1024)
                     while file_message:
                         chunkList.append(file_message)
                         file_message = client.recv(1024)
                         
                     print(f"File received. {len(chunkList)} packets sent.")
-                    # downloaderSocket.send("FILE".encode("utf-8"))
+                    
+                    message = "FILE:" + fileHash
+                    downloaderSocket.send(message.encode("utf-8"))
 
                     # Writes the received chunks into a temporary file
                     file = open(tempFile, "wb")
                     for chunk in chunkList:
                         file.write(chunk)
                     file.close()
-                    
+                    # file_size = os.path.getsize(tempFile)
+                    # print("File Size is :", file_size, "bytes")
                     # Sends the tempFile to the client requesting the file
                     file = open(tempFile, "rb")
                     chunk = file.read(FILESIZE) 
                     counter = 0
                     while chunk:
                         counter += 1
-                        print(chunk)
+                        # print(chunk)
                         downloaderSocket.send(chunk)
                         chunk = file.read(FILESIZE)
+                    # downloaderSocket.send(chunkList[len(chunkList)-1])
                     file.close()
                     #for chunk in chunkList:
                     #    downloaderSocket.send(chunk)
+                    time.sleep(0.5)
                     downloaderSocket.shutdown(socket.SHUT_WR)
-                    #os.remove(tempFile)
-                print(f"File sent. {counter} packets sent.")
+                    os.remove(tempFile)
+                print(f"Sending file complete. {counter} packets sent.")
 
 
             # Client wants the server to know that they have a file that they can send to other clients upon request.
@@ -151,7 +161,6 @@ def handle(client, nickname):
             elif  message[0] == "DISCONNECT":
                 clientDisconnect(nickname)
                 break
-                # print("4:", connections)
 
         except Exception as e:
             print("\nhandle")
