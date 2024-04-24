@@ -258,12 +258,11 @@ def requestFile(client, username, fileHash):
             file_message = client.recv(1024)
             while file_message:
                 chunkList.append(file_message)
-                print(chunkList)
                 file_message = client.recv(1024)
             file = open(newFileName, "wb")
-            #with open(newFileName, "wb") as file:
             for chunk in chunkList:
                 file.write(chunk)
+            file.close()
             print("File received")
             print("Received chunks: " + str(len(chunkList)))
     except Exception as e: 
