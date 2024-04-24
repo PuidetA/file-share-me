@@ -1,8 +1,18 @@
 # DS Final project
-# By: Emma Niemenmaa, Aino Räkköläinen
 # Created: 20.4.2024
 # Last modified: 24.4.2024
 # Sources:
+# 1. Sending and receiving file chunks: https://stackoverflow.com/questions/27241804/sending-a-file-over-tcp-sockets-in-python
+# 2. 
+
+
+'''
+1. broadcast: Takes a message as a parameter and sends it to all clients
+2. clientDisconnect: Takes the nickname of the client as a parameter and removes their files from the file database (fileDB)
+3. sendFileList: Takes the client socket as a parameter and and sends the filelist to a client requesting it.
+4. handle: Takes client nickname and sokcket as parameters. Handles message exchange between two clients or client and server.
+5. server_main: Takes no parameters. Handles the new clients and connections.
+'''
 
 import threading
 import socket
@@ -27,8 +37,7 @@ FILESIZE = 1024
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((HOST,PORT))
 server.listen(10) # Number inside specifies how many unexpected connections are allowed before they start getting rejected (Example (5) -> if more than 5 connections are waiting, new requests are denied)
-print("Server is listening...")
-# print(f"Port: {PORT}")
+print(f"Server is listening on port {PORT}...")
 # print(f"IP: {HOST}")
 
 # Sends a message to all clients
@@ -39,6 +48,7 @@ def broadcast(message):
 # Removes disconnected peer's files from the database
 def clientDisconnect(nickname):
     del connections[nickname]
+    print("Client removed:", connections)
     fileList = fileDB.getByQuery({"owner":nickname})
     for file in fileList:
         id = file["id"]
@@ -52,6 +62,7 @@ def sendFileList(client):
             for file in fileList:
                 message = "FILELIST:" + file["hash"] + ":" + file["fileName"]
                 client.send(message.encode("utf-8"))
+                time.sleep(0.2) # This is here to sync with the client
         except Exception as e:
             print("\nsendFileList")
             print("Exception occurred:", e)
@@ -61,12 +72,14 @@ def handle(client, nickname):
     while True:
         try:
             # message is a str received from the client. 
-            # It is written in the form: "REQUEST:FileHash:FileName" for example
+            # The message is written in the form: "REQUEST:FileHash:FileName" for example
             message = client.recv(1024).decode("utf-8").split(":")
+            option = message[0]
 
             # Inform uploader for upcoming download request.
-            if message[0] == "DOWNLOADREQUEST":
-                fileHash = message[2]
+            if option == "DOWNLOADREQUEST":
+                # Parsing the info from message
+                fileHash = message[1]
                 
                 # Getting the uploader information from the database and the connections list:
                 fileDict = fileDB.getByQuery({"hash": fileHash})
@@ -81,94 +94,85 @@ def handle(client, nickname):
                 
 
             # Starts sending the file 
-            elif message[0] == "FILE":
+            elif option == "FILE":
                 chunkList = []
                 fileHash = message[1]
-                fileExtension = fileDB.getByQuery({"hash":fileHash})[0]["fileName"].split(".")[1]
-                tempFile = "temp." + fileExtension
+                #fileExtension = fileDB.getByQuery({"hash":fileHash})[0]["fileName"].split(".")[1]
+                #tempFile = "temp." + fileExtension
 
                 # Finds the downloaders socket from a downloader_queue dictionary
                 if fileHash in download_queue.keys():
-                    username = download_queue[fileHash]
+                    # Define neccessary variables
+                    username = download_queue[fileHash] # Downloaders username
                     downloaderSocket = connections[username]
                     uploaderSocket = client
-                    #print("downloaderSocket:", downloaderSocket)
-                    #print("Nickname:", username)
-                    #print("uploaderSocket:", client)
-                    #print("Nickname:", nickname)
-                    file_message = client.recv(1024)
+
+                    # Start receiving packets from the uploader
+                    file_message = uploaderSocket.recv(1024)
                     while file_message:
                         chunkList.append(file_message)
-                        file_message = client.recv(1024)
-                        
-                    print(f"File received. {len(chunkList)} packets sent.")
+                        file_message = uploaderSocket.recv(1024)
                     
+                    # Sending the file to the client who is requesting it
                     message = "FILE:" + fileHash
                     downloaderSocket.send(message.encode("utf-8"))
-
-                    # Writes the received chunks into a temporary file
-                    file = open(tempFile, "wb")
                     for chunk in chunkList:
-                        file.write(chunk)
-                    file.close()
-                    # file_size = os.path.getsize(tempFile)
-                    # print("File Size is :", file_size, "bytes")
-                    # Sends the tempFile to the client requesting the file
-                    file = open(tempFile, "rb")
-                    chunk = file.read(FILESIZE) 
-                    counter = 0
-                    while chunk:
-                        counter += 1
-                        # print(chunk)
                         downloaderSocket.send(chunk)
-                        chunk = file.read(FILESIZE)
-                    # downloaderSocket.send(chunkList[len(chunkList)-1])
-                    file.close()
-                    #for chunk in chunkList:
-                    #    downloaderSocket.send(chunk)
-                    time.sleep(0.5)
                     downloaderSocket.shutdown(socket.SHUT_WR)
-                    os.remove(tempFile)
-                print(f"Sending file complete. {counter} packets sent.")
-
+                    #downloaderSocket.close()
+                print(f"Sending file complete. {len(chunkList)} packets sent.")
 
             # Client wants the server to know that they have a file that they can send to other clients upon request.
-            elif message[0] == "UPLOADREQUEST":
-                print("upload request")
+            elif option == "UPLOADREQUEST":
                 hashList = fileDB.getByQuery({"hash":message[3]})
+                
                 # If hash is not found on the database already, adds the file info to the database
                 if hashList == []:
+                    print("Adding file to db")
                     fileDB.add({
                         "hash": message[3],
                         "owner": message[1],
                         "fileName": message[2]
                     })
-                    # A message to client informing about a successful upload
-                    client.send("UPLOAD:Successful".encode("utf-8"))
-                    message = "NEWFILE"
-                    # Broadcast to every client to tell them to request an updated file list
-                    broadcast(message)
-                # If the hash can already be found on the database, it won't be added there another time.
                 else:
-                    client.send("UPLOAD:Failed".encode("utf-8"))
-                print("upload requestn't")
+                    for data in hashList:
+                        if data["owner"] != nickname:
+                            print("Adding file to db")
+                            fileDB.add({
+                                "hash": message[3],
+                                "owner": message[1],
+                                "fileName": message[2]
+                            })
+                            # A message to client informing about a successful upload
+                            client.send("UPLOAD:Successful".encode("utf-8"))
+                        # If the hash can already be found on the database, it won't be added there another time.
+                        else:
+                            client.send("UPLOAD:Failed".encode("utf-8"))
+                
+                # Broadcast to every client to tell them to request an updated file list
+                updateMessage = "NEWFILE"
+                broadcast(updateMessage)
             
             # Sends the contents of fileDB to a client requesting it
-            elif message[0] == "FILELISTREQUEST":
+            elif option == "FILELISTREQUEST":
                 sendFileList(client)
             
             # Removes the client's files from the database when a client disconnects from the network.
-            elif  message[0] == "DISCONNECT":
+            elif  option == "DISCONNECT":
+                print(f"Client {nickname} disconnecting")
                 clientDisconnect(nickname)
                 break
 
+        except ConnectionAbortedError as e:
+            print("\nhandle")
+            print(f"ConnectionAbortedError, disconnecting {nickname}")
+            clientDisconnect(nickname)
+            break
         except Exception as e:
             print("\nhandle")
             print("Exception occurred:", e)
             clientDisconnect(nickname)
-            # print("3:", connections)
             break
-
 
 # Handles the new clients and connections.
 def server_main():
@@ -176,23 +180,31 @@ def server_main():
         try:
             client, address = server.accept()
             print(f"Connected with {str(address)}")
-
-            nickname = client.recv(1024).decode("utf-8")
+            nickname = None
+            
+            # Checks if users username is unique
+            invalid = True
+            while invalid:
+                nickname = client.recv(1024).decode("utf-8")
+                if nickname != None:
+                    if nickname in connections.keys():
+                        client.send("INVALID".encode())
+                    else:
+                        client.send("VALID".encode())
+                        invalid = False
+        
 
             # A dictionary where UNIQUE nicknames for users is the key and value is a list of their files
             connections[nickname] = client
 
             print("Nickname of the client is", nickname + "!")
 
-            #thread_filelist = threading.Thread(target=sendFileList, args=(client,))
-            #thread_filelist.start()
-
             thread = threading.Thread(target=handle, args=(client, nickname,))
             thread.start() # This starts the worker (handle) function in a separate thread.
 
         except ConnectionAbortedError as e:
             print("\nmain")
-            print(f"Exception occurred: {e}")
+            print(f"ConnectionAbortedError: {e}")
             clientDisconnect(nickname)
             # print("1:", connections)
             continue
