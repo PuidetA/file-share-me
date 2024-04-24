@@ -109,6 +109,7 @@ lock = threading.Lock()
 #filesDB = db.getDb("filesDB.json")
 
 #   1. TODO: File Handling
+# This function calculates hash value for each file in the network based on their path
 def calculateFileHash(filePath):
     """
     Generates a unique hash (like SHA-1) to identify the file on the network.
@@ -140,25 +141,22 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
     - chunkPaths: A list containing the paths to the generated chunks. E.g. ["C:/Users/User/Documents/file_chunk1.txt", "C:/Users/User/Documents/file_chunk2.txt"].
     """
     try:
-        file = open(filePath, "rb")
-        chunk = 0
-        byte = file.read(chunkSize) 
-        while byte:
-            print("Sending chunk", chunk)
-            client.send(byte)
-            byte = file.read(1024)
-            chunk += 1
-        file.close()
-        client.shutdown(socket.SHUT_WR)
-        #client.send(b"<END>")
-        #lock.release()
-        print("File send to the server")
+        with open(filePath, "rb") as file:
+            chunk = 0
+            byte = file.read(chunkSize) 
+            while byte:
+                print("Sending chunk", chunk)
+                client.send(byte)
+                byte = file.read(1024)
+                chunk += 1
+            client.shutdown(socket.SHUT_WR)
+            print("File send to the server")
     except FileNotFoundError:
         print("Check the file name and try again")
     except Exception as e: 
         print(f"Try again, error: {e}")
 
-def reassembleFile(fileHash, fileName, chunkPaths):
+#def reassembleFile(fileHash, fileName, chunkPaths):
     """
     Combines chunks into the complete file after downloading.
 
@@ -168,32 +166,35 @@ def reassembleFile(fileHash, fileName, chunkPaths):
     Returns:
     - filePath: The path to the reassembled file. E.g. "C:/Users/User/Documents/file.txt".
     """
-    file_name = fileName
-    current_directory = os.getcwd()
-    path_reassembled = os.path.join(current_directory, file_name)
-    file_reassembled = open(path_reassembled, "ab")
+ #   file_name = fileName
+  #  current_directory = os.getcwd()
+   # path_reassembled = os.path.join(current_directory, file_name)
+   # file_reassembled = open(path_reassembled, "ab")
     # chunks_reassembled = None
     
     # Read the file chunks into one string
-    for chunk_path in chunkPaths:
-        file_chunk = open(chunk_path, "rb")
-        byte = file_chunk.read(1024)
-        file_reassembled.write(byte)
+    #for chunk_path in chunkPaths:
+     #   file_chunk = open(chunk_path, "rb")
+      #  byte = file_chunk.read(1024)
+       # file_reassembled.write(byte)
         # chunks_reassembled += file_chunk
-        file_chunk.close()
+        #file_chunk.close()
     
     # Write the string into a file
     # file_reassembled.write(chunks_reassembled)
-    file_reassembled.close()
-    filePath = file_reassembled 
-    return filePath
+    #file_reassembled.close()
+    #filePath = file_reassembled 
+    #return filePath
 def getFilePath(fileName):
-    if(fileName):
-        current_directory = os.getcwd() + "\\files"
-        path = os.path.join(current_directory, fileName)
-        return path
-    else: 
-        return None
+    try:
+        if(fileName):
+            current_directory = os.getcwd() + "\\files"
+            path = os.path.join(current_directory, fileName)
+            return path
+        else: 
+            return None
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
 #   2. TODO: User Interface (UI)
 def displayFileList():
     """
@@ -235,6 +236,8 @@ def updateDownloadProgress(fileHash, progress):
     """
 
 #   4. TODO: File Exchange
+# This function requests the file it wants to download from the tracker server which then
+# checks from database which connected client has that file
 def requestFile(client, username, fileHash):
     """
     Send a request to the tracker server.
@@ -243,31 +246,33 @@ def requestFile(client, username, fileHash):
     client.send(message.encode("utf-8"))
     print("File request send")
     try:
-        file = open("file.txt", "wb")
-        file_message = client.recv(1024)
-        print("Waiting for the file...")
-        while file_message:
-            file.write(file_message)
+        fileName = fileDict[fileHash]
+        if(fileName):
+            temp = fileName.split(".")
+            newFileName = temp[0] + "_copy" + "." + temp[1]
+            print(newFileName)
+            #file = open(newFileName, "wb")
+            #file_message = client.recv(1024)
+            print("Waiting for the file...")
+            chunkList = []
             file_message = client.recv(1024)
-        file.close()
-        print("File received")
+            while file_message:
+                chunkList.append(file_message)
+                print(chunkList)
+                file_message = client.recv(1024)
+            file = open(newFileName, "wb")
+            #with open(newFileName, "wb") as file:
+            for chunk in chunkList:
+                file.write(chunk)
+            print("File received")
+            print("Received chunks: " + str(len(chunkList)))
     except Exception as e: 
-        print("Error occured {e}")
+        print(f"Error occured {e}")
 
-def sendChunk(client, chunkPath):
-    """
-    Send a chunk in response.
 
-    Parameters:
-    - client: socket that sends the data
-    - chunkData: The data of the chunk being sent.
-    Returns: None
-    """
-    chunkFile = open(chunkPath, "rb")
-    #chunkContent = chunkFile.read(1024)
-    client.sendfile(chunkFile)
-    #chunkFile.close()
-
+# This function sends the information about file which is uploaded to the target server which saves
+# that information into database that is JSON format.
+# Client sends their username, fileName and the fileHash
 def uploadFile(client, username, fileName):
     filePath = getFilePath(fileName)
     if (filePath):
@@ -277,7 +282,7 @@ def uploadFile(client, username, fileName):
         print("Upload request sent successfully")
     else:
         print("File path not found!")
-
+# This connects the client to the tracker server
 def connectToTargetServer(client, address, port):
     try:
         client.connect((address, port))
@@ -285,33 +290,19 @@ def connectToTargetServer(client, address, port):
     except Exception as e: 
         print("Exception occurred {e}")
 
-#def sendFileDictRequest(client):
- #   print(lock.locked())
-  #  if(lock.locked()):
-   #     print("Waiting for lock to release")
-    #    time.sleep(100)
-   # else:
-    #    print("Requesting file list..")
-     #   try:
-      #      while True:
-       #         request = "FILELISTREQUEST:"
-        #        client.send(request.encode("utf-8"))
-         #       time.sleep(3)
-        #except Exception as error: 
-         #   print(error)
 def listenForServerConnection(client):
     while True:
         try:
+            # Here we receive the message from the tracker server and act according it
             message = client.recv(1024).decode("utf-8").split(":")
-            if(message[0] == "FILELIST"):
+            if(message[0] == "FILELIST"): # Here we update the list of files
                 if (message[1] not in fileDict):
                     fileDict[message[1]] = message[2]
-            elif(message[0] == "UPLOAD"):
+            elif(message[0] == "UPLOAD"): # 
                 print("Upload state: " + message[1])
             elif(message[0] == "NEWFILE"):
                 client.send("FILELISTREQUEST".encode("utf-8"))
             elif(message[0] == "FILESENDREQUEST"):
-                #lock.acquire(blocking=True)
                 print("Received request for sending file to the server")
                 fileHash = message[1]
                 fileName = None
@@ -325,15 +316,6 @@ def listenForServerConnection(client):
                             msg = "FILE:" + fileHash
                             client.send(msg.encode("utf-8"))
                             divideFileIntoChunksAndSendChunks(client, filePath, CHUNK_SIZE)
-                #elif(message[0] == "FILE"):
-                 #   print("Starting to receive file..")
-                  #  file = open("file.png", "wb")
-                   # file_message = client.recv(1024)
-                   # while file_message:
-                    #    file.write(file_message)
-                     #   file_message = client.recv(1024)
-                    #file.close()
-                    #client.send(b'<END>')
         except Exception as e: 
             print(f"Error occured: {e}")
             fileDict.clear()
@@ -355,7 +337,6 @@ if __name__ == "__main__":
     # Specifying the new user as part of peer network
     serverIP = sys.argv[1]
     port = int(sys.argv[2])
-    #fileDict = {"hash1": ["image.png", "peername1"], "hash2": ["start.png", "peername2"]}
     username = input("Give your username: ")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     clientAsServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -364,11 +345,7 @@ if __name__ == "__main__":
     clientAsServer.bind((newAddress, newPort))
     connectToTargetServer(client, serverIP, port)
     threadListenServer = threading.Thread(target=listenForServerConnection, args=(client,))
-    #threadFileDict = threading.Thread(target=sendFileDictRequest, args=(client, ))
-    #threadFileDict.start()
     threadListenServer.start()
-    #threadFileDict.join()
-    #threadListenServer.join()
     isAlive = True
     listUpdate = False
     while True:
@@ -379,6 +356,7 @@ if __name__ == "__main__":
         print("0) Exit")
         choice = input("your choice: ")
         if choice == "1" or listUpdate:
+            #connectToTargetServer(client, serverIP, port)
             # Request list of files from the target server
             request = "FILELISTREQUEST:"
             client.send(request.encode("utf-8"))
@@ -404,7 +382,7 @@ if __name__ == "__main__":
                 #print(fileHashList)
                 fileHash = fileHashList[0]
                 requestFile(client, username, fileHash)  
-            
+                #connectToTargetServer(client, serverIP, port)
         elif choice == "0":
             isAlive = False
             message = "DISCONNECT:" + username
