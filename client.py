@@ -449,8 +449,18 @@ def printFileList():
     for hash in fileDict: 
        print(fileDict[hash], index)
        index = index + 1
+
+
+
+       
 if __name__ == "__main__":
-    main()
+
+
+
+    main() # Main function that starts the GUI via a mainloop. This will loop until the program is stopped (there is no break from the loop).
+
+
+
     chunk_size = 1024 # Chunk size will be approximately 1 kb (1024 bytes)
     chunkPaths = []
     # Specifying the new user as part of peer network
