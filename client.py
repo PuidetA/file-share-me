@@ -167,6 +167,11 @@ def displayFileList():
     request = "FILELISTREQUEST:"
     client.send(request.encode("utf-8"))
 
+def findFileHash(fileName):
+    for hash in fileDict:
+        if fileName == fileDict[hash]:      
+            fileHash = hash
+    return fileHash
 
     
 
@@ -279,9 +284,9 @@ def main():
 
     #Section covers the "Download" button that will be used to download the selected file
     downloadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Download file name")
-    downloadEntry.grid(row=12, column=0)
-    downloadButton = ctk.CTkButton(commandFrame, text="Download", command=lambda: downloadFile(calculateFileHash(getFilePath(downloadEntry.get()))))
-    downloadButton.grid(row=13, column=0, pady=2)
+    downloadEntry.grid(row=11, column=0)
+    downloadButton = ctk.CTkButton(commandFrame, text="Download", command=lambda: downloadFile(findFileHash(downloadEntry.get())))
+    downloadButton.grid(row=12, column=0, pady=2)
 
 
     #Section covers the "Upload" button that will be used to upload the selected file
@@ -354,7 +359,6 @@ def enterUsername(usernameEntry):
         print("Error: Invalid username, try again")
         username = None
     
-
 def registerPeer(serverIP, port, username):
     #serverIP = sys.argv[1]
     #port = int(sys.argv[2])
@@ -467,32 +471,15 @@ def listenForServerConnection(client, serverIP, port):
             message = client.recv(1024).decode("utf-8").split(":")
             option = message[0]
             if(option == "FILELIST"): # Here we update the list of files
-                #fileHash = message[1]
-                #fileName = message[2]
-                #if (fileHash not in fileDict):
-                #    fileDict[fileHash] = fileName
-                
-                #message = client.send("FILELISTREQUEST".encode())
                 print("Updating file list..")
 
                 files = message
                 files.pop(0)
-                counter = 0
                 for data in files:
                     data = data.split("-")
                     fileHash = data[0]
                     fileName = data[1]
                     fileDict[fileHash] = fileName
-
-                    #if counter%2 == 0 or counter == 0:
-                    #    print("in option==FILELIST")
-                    #    counter += 1
-                    #    fileDict[files[i]] = message[counter]
-                    #else:
-                    #    counter += 1
-                    #    continue
-                # fileDict[files[counter]] = message[counter]
-                # print(fileDict)
 
             elif(option == "UPLOAD"): # 
                 uploadStatus = message[1]
@@ -581,70 +568,5 @@ def downloadFile(requestedFileHash):
 
        
 if __name__ == "__main__":
-
-
-
     main() # Main function that starts the GUI via a mainloop. This will loop until the program is stopped (there is no break from the loop).
-
-
-
-    
-    """# Specifying the new user as part of peer network
-    serverIP = sys.argv[1]
-    port = int(sys.argv[2])"""
-    #username = input("Give your username: ")
-    # Defining client socket
-    #client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #connectToTargetServer(client, serverIP, port)
-
-    #while isAlive:
-        #client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #connectToTargetServer(client, gserverIP, gport)
-        #if(username == None):
-        #    username = listenForNicknameStatus(client)
-        #threadListenServer = threading.Thread(target=listenForServerConnection, args=(client, gserverIP, gport))
-        #threadListenServer.start()
-    #    try:
-    #        while True:
-    #            print("What do you want to do?") # Comments to list off functions done by UI in main(), and implemented functions (i.e. functional/usable)
-    #            print("1) Print file list") #done, implemented in displayFileList()
-    #            print("2) Upload file") #done, 
-    #            print("3) Download file") #done, 
-    #            print("0) Exit") #done, implemented in exitProgram()
-    #            choice = input("your choice: ")
-    #            if choice == "1":
-    #                # Request list of files from the target server
-    #                request = "FILELISTREQUEST:"
-    #                client.send(request.encode("utf-8"))
-    #                print("List of files..")
-    #                printFileList()
-
-    #            elif choice == "2":
-    #                print("Upload file..")
-    #                print("Main choice 2:", fileDict)
-    #                fileName = input("Give file name: ") # This will be asked in UI later
-    #                uploadFile(client, username, fileName)
-    #            elif choice == "3":
-    #                print("Download file..")
-    #                print("Main choice 3: ", fileDict)
-    #                request = "FILELISTREQUEST:"
-    #                client.send(request.encode("utf-8"))
-    #                fileHashList = list(fileDict.keys())
-    #                if(len(fileHashList) > 0):
-    #                    fileHash = fileHashList[0]
-    #                    requestFile(client, fileHash)  
-    #            elif choice == "0":
-    #                message = "DISCONNECT:" + username
-    #                client.send(message.encode("utf-8"))
-    #                client.close()
-    #                isAlive = False
-    #                break
-    #            else:
-    #                print("Read the options again and give a new choice.")
-    #    except ConnectionResetError:
-    #        print("Connection to target server was closed due server error")
-    #    except ConnectionRefusedError and BrokenPipeError:
-    #        #print("Connection closed, closing the program")
-    #        client.close()
-    #        isAlive = True
         
