@@ -62,7 +62,15 @@ import threading
 
 fileDict = {}       # Dictionary of files available for sharing. Form: hash value of the file as key and fileName as value
 isAlive = True
-CHUNK_SIZE = 1024
+CHUNK_SIZE = 1024 # Chunk size will be approximately 1 kb (1024 bytes)
+chunkPaths = []
+currentFileDirectory = ""
+username = None
+
+
+# Defining client socket
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 
 # 1. File Handling
 # This function calculates hash value for each file in the network
@@ -127,32 +135,31 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
 
 
 #   2. TODO: User Interface (UI)
-def displayFileList(givenDirectoryPath, listbox):
+
+
+def displayCurrentFileList(givenDirectoryPath, listbox):
 # This function tries to find the path of file by its name 
-def getFilePath(fileName):
-    try:
-        if(fileName):
-            current_directory = os.getcwd() + "\\files"
-            path = os.path.join(current_directory, fileName)
-            return path
-        else: 
-            return None
-    except FileNotFoundError as e:
-        print(f"File not found: {e}")
-#   2. User Interface (UI)
-def displayFileList():
-    """
-    Updates the UI with the list of files available for download from other peers. E.g. displays a list of files in a window.
 
-    Parameters: fileList e.g. ["file1.txt", "file2.txt"]
-
-    Returns: None
-    """
+    currentFileDirectory = givenDirectoryPath
     listbox.delete(0, 'end') #Clears the listbox before adding files to it. This is to ensure that only the files in the selected directory are displayed. (also to avoid duplicating the same directory if the user runs the command multiple times.)
     #testList = ["file1.txt", "file2.txt", "file3.txt", "file4.txt"] #Test list of files for sharing
     files=[file for file in os.listdir(givenDirectoryPath) if os.path.isfile(os.path.join(givenDirectoryPath, file))]
     for file in files: #Get files and insert them into the listbox. Uncomment testList and replace "files" with "testList" if you want to test the function without having to select a directory.
         listbox.insert('end', file)
+
+
+def getFilePath(fileName):
+    try:
+        if(fileName):
+            #current_directory = os.getcwd() + "\\files"
+            #path = os.path.join(current_directory, fileName)
+            path = os.path.join(currentFileDirectory, fileName)
+            return path
+        else: 
+            return None
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+
     
 
 def updateFileList():
@@ -176,19 +183,6 @@ def shareFileList(fileList):
     Returns: None
     """
 
-def updateDownloadProgress(fileHash, progress): 
-    #TODO: rewrite this. Requirements changed. This functionality needs to exist, but the implementation will be different.
-    """
-    
-    Visually displays download progress of a file (or how many chunks are left to be downloaded).
-
-    Parameters:
-    - fileHash: The hash value identifying the file being downloaded. E.g. "a1b2c3d4".
-    - progress: The download progress, indicating how many chunks are left to be downloaded. E.g. 5/64 chunks downloaded. In the terminal, it can be displayed as "Downloading file: 5/64".
-
-    Returns: None
-    """
-
 def main():
     """
     Main function to handle the user interface and file sharing operations.
@@ -197,7 +191,8 @@ def main():
 
     Returns: None
     """
-    root=ctk.CTk() #root/main window
+    global root # This will be the main window. It is global so that other functions can use it. e.g. exitProgram() function.
+    root = ctk.CTk() #root/main window
     ctk.set_appearance_mode("dark") #Sets the appearance mode of the GUI to dark
     ctk.set_default_color_theme("green") #Sets the default color theme of the GUI elements to green
     root.title("File Sharing Application") #Title of the window
@@ -215,7 +210,7 @@ def main():
 
     commandFrame=ctk.CTkFrame(root, width=140, corner_radius=0) #Frame in which the command buttons and entries are placed in
     commandFrame.grid(row=0, column=0, sticky="nsew", rowspan=4) #Places the commandFrame in the main window
-    commandFrame.grid_rowconfigure(12, weight=1) #Configures the row of the commandFrame
+    commandFrame.grid_rowconfigure(14, weight=1) #Configures the row of the commandFrame
 
     ## commandFrame widgets
     #Section covers the intro text and places it in the commandFrame at the top
@@ -226,32 +221,56 @@ def main():
     connectInstructionText = ctk.CTkLabel(commandFrame, text="Enter IP address and port number to connect to")
     connectInstructionText.grid(row=1, column=0)
     connectEntryIP = ctk.CTkEntry(commandFrame, placeholder_text="IP Address")
-    connectEntryIP.grid(row=2, column=0)
+    connectEntryIP.grid(row=2, column=0, pady=1)
     connectEntryPort = ctk.CTkEntry(commandFrame, placeholder_text="Port Number")
     connectEntryPort.grid(row=3, column=0)
-    connectButton = ctk.CTkButton(commandFrame, text="Connect", command=registerPeerButton)
+    connectButton = ctk.CTkButton(commandFrame, text="Connect", command=lambda: registerPeer(connectEntryIP.get(), connectEntryPort.get()))
     connectButton.grid(row=4, column=0, pady=10)
 
 
     #Section covers:
     #1. The "Absolute file path" entry widget to paste the absolute path to the local directory.
     #2. The "Select directory" button which runs commands that let you choose a directory from your computer and pastes it into the entry widget (it clears the text box before pasting).
-    #3. The "Enter" button to get the absolute directory path from the entry widget and display the files via displayFileList(*) function.
-    filepathInstructionText = ctk.CTkLabel(commandFrame, text="Enter the path of the file to select and view")
+    #3. The "Enter" button to get the absolute directory path from the entry widget and display the files via displayCurrentFileList(*) function.
+    filepathInstructionText = ctk.CTkLabel(commandFrame, text="Enter the path of the file folder to select and view")
     filepathInstructionText.grid(row=5, column=0)
     filepathEntry = ctk.CTkEntry(commandFrame, placeholder_text="Absolute file path")
     filepathEntry.grid(row=6, column=0)
     #File selection button - opens a file dialog to select a file
     filepathEntryDirectorySelectButton = ctk.CTkButton(commandFrame, text="Select directory", command=lambda: selectLocalDirectory(filepathEntry)) 
     filepathEntryDirectorySelectButton.grid(row=7, column=0, pady=2)
-    selectButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: displayFileList(filepathEntry.get(), listbox))
+    selectButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: displayCurrentFileList(filepathEntry.get(), listbox))
     selectButton.grid(row=8, column=0, pady=10)
+
+
+
+    #Upload and Download file instructions
+    uploadDownloadInstructionText = ctk.CTkLabel(commandFrame, text="Select a file to upload or download")
+    uploadDownloadInstructionText.grid(row=9, column=0)
+
+
+    #Section covers the "Download" button that will be used to download the selected file
+    downloadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Download file name")
+    downloadEntry.grid(row=10, column=0)
+    downloadButton = ctk.CTkButton(commandFrame, text="Download", command=lambda: requestFile(client, fileHash))
+    downloadButton.grid(row=11, column=0, pady=2)
+
+
+    #Section covers the "Upload" button that will be used to upload the selected file
+    uploadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Upload file name")
+    uploadEntry.grid(row=12, column=0, pady=2)
+    uploadButton = ctk.CTkButton(commandFrame, text="Upload", command=lambda: uploadFile(client, username, fileName))
+    uploadButton.grid(row=13, column=0)
+
+    #Section covers the "Exit" button that will be used to exit the program
+    exitButton = ctk.CTkButton(commandFrame, fg_color="red", text="Disconnect & Exit", command=exitProgram)
+    exitButton.grid(row=14, column=0, pady=30)
 
 
 
     ### resultsFrame
 
-    resultsFrame=ctk.CTkFrame(root, width=200, height=400, corner_radius=10) #Frame in which the files are displayed TODO: Insert it and implement the displayFileList() function
+    resultsFrame=ctk.CTkFrame(root, width=200, height=400, corner_radius=10) #Frame in which the files are displayed TODO: Insert it and implement the displayCurrentFileList() function
     resultsFrame.grid(row=0, column=4, sticky="NESW", rowspan=4, columnspan=2) #Places the resultsFrame in the main window
     resultsFrame.grid_rowconfigure(4, weight=3) #Configures the row of the resultsFrame
 
@@ -292,9 +311,20 @@ def selectLocalDirectory(filepathEntry):
     return directoryPath"""
 
 
-def registerPeerButton(): #Function to handle the connect button
-    pass
-    registerPeer(connectEntryIP.get(), connectEntryPort.get()) #Calls the registerPeer function with the IP and port number entered by the user via entryWidgetName.get()
+
+def registerPeer(serverIP, port):
+    serverIP = sys.argv[1]
+    port = int(sys.argv[2])
+    connectToTargetServer(client, serverIP, port)
+
+def exitProgram():
+    client.close()
+    message = "DISCONNECT:" + username
+    client.send(message.encode("utf-8"))
+    client.close()
+    root.destroy()
+    
+    
     
 
 # 3. File Exchange/Transfer
@@ -345,6 +375,8 @@ def connectToTargetServer(client, address, port):
         print(f"Exception occurred in connecting to the target server: {e}")
 # This function listens for messages that are coming from the server and responds to them
 # based on the options it has which are FILELIST, UPLOAD, NEWFILE, FILESENDREQUEST, FILE
+
+
 def listenForNicknameStatus(client):
     username = None
     status = "INVALID"
@@ -461,17 +493,15 @@ if __name__ == "__main__":
 
 
 
-    chunk_size = 1024 # Chunk size will be approximately 1 kb (1024 bytes)
-    chunkPaths = []
-    # Specifying the new user as part of peer network
+    
+    """# Specifying the new user as part of peer network
     serverIP = sys.argv[1]
-    port = int(sys.argv[2])
+    port = int(sys.argv[2])"""
     #username = input("Give your username: ")
     # Defining client socket
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connectToTargetServer(client, serverIP, port)
-    isAlive = True
-    username = None
+
     while isAlive:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connectToTargetServer(client, serverIP, port)
@@ -481,11 +511,11 @@ if __name__ == "__main__":
         threadListenServer.start()
         try:
             while True:
-                print("What do you want to do?")
-                print("1) Print file list")
+                print("What do you want to do?") # Comments to list off functions done by UI in main()
+                print("1) Print file list") #done
                 print("2) Upload file")
-                print("3) Download file")
-                print("0) Exit")
+                print("3) Download file") #done
+                print("0) Exit") #done
                 choice = input("your choice: ")
                 if choice == "1":
                     # Request list of files from the target server
