@@ -365,11 +365,15 @@ def registerPeer(serverIP, port, username):
     threadListenServer.start()
 
 def exitProgram():
-    client.close()
-    message = "DISCONNECT:" + nickname
-    client.send(message.encode("utf-8"))
-    client.close()
-    root.destroy()
+    try:
+        if nickname:
+            message = "DISCONNECT:" + nickname
+            client.send(message.encode("utf-8"))
+            client.close()
+    except Exception as e:
+        print(f"Error occured while disconnecting: {e}")
+    finally:
+        root.destroy()
     
     
     
