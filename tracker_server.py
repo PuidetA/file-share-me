@@ -1,9 +1,9 @@
 # DS Final project
 # Created: 20.4.2024
-# Last modified: 24.4.2024
+# Last modified: 25.4.2024
 # Sources:
 # 1. Sending and receiving file chunks: https://stackoverflow.com/questions/27241804/sending-a-file-over-tcp-sockets-in-python
-# 2. 
+# 2. Using pysonDB (besides its documentation): https://dev.to/fredysomy/pysondb-a-json-based-lightweight-database-for-python-ija 
 
 
 '''

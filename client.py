@@ -1,14 +1,9 @@
 
 """
-Interaction Example: Downloading a File
-
-1. Request and receive file list: User requests the network for current list. displayFileList() queries the network.
-2. UI Update: displayFileList() shows search results to the user.
-3. Download Initiation: User approves file download. requestFile(fileHash) starts.
-4. Connection and Requests: connectToTargetServer() establishes connection to target server that handles the requests and transferring files between clients
-
-"""
-"""NEW Client-Side Functionality:
+DS Final project: Development BRANCH
+Created: 20.4.2024
+Last modified: 25.4.2024
+Client-Side Functionality which can be tested in this branch
 
 Reason for simplified design: The initial design was too complex for the given amount of time. The new design focuses on the core functionalities needed for a basic file-sharing system.
 The focus will be more on P2P sharing between only 2 systems. The client will handle file management, peer management, and file exchange.
@@ -16,25 +11,23 @@ The focus will be more on P2P sharing between only 2 systems. The client will ha
 1. File Handling
 
 calculateFileHash(filePath): Generates a unique hash (like SHA-1) to identify the file on the network.
-divideFileIntoChunksAndSendChunks(filePath, chunkSize): Splits the file into smaller chunks for efficient transfer and resuming downloads.
+divideFileIntoChunksAndSendChunks(filePath, chunkSize): splits the file into chunks and sends those for more efficient use
 
-2. User Interface (UI):
+2. File Exchange
+requestFile(fileHash): Send a download request to the target server
+getFilePath(fileName): Finds the path of file when uploading file with filename given in terminal
+uploadFile(): uploads the filehash, filename and file owner information to the target server
+sendFileNamesToServer(): used to send names of files user has in files folder which located to the same place than this app
+connectToTargetServer(): used to connect to target server with given ip address and port
 
-displayFileList(): Updates the UI with the list of files available for download from other peer.
-updateFileList(): Updates the file list to reflect new files that are added to the folder.
-shareFileList(fileList): Triggered when displayFileList() method from another peer requests a list of files.
-updateDownloadProgress(fileHash, progress): Visually displays download progress of a file (or how many chunks are left to be downloaded).
 
 
-3. File Exchange
 
-requestFile(fileHash): Send a request to a peer.
-sendChunk(peerID, fileHash, chunkIndex, chunkData): Send a chunk in response.
-downloadFile(fileHash): Get peer list, coordinate requests, and reassemble chunks.
 
 Sources for this code: 
-1) 
-
+1) How to use sockets is done based on this video: https://www.youtube.com/watch?v=YwWfKitB8aA
+2) Sending and receiving chunks of file with TCP connection in Python is based on this: https://stackoverflow.com/questions/27241804/sending-a-file-over-tcp-sockets-in-python
++ Documentation of Python and each module which were used in this
 
 """
 
@@ -48,11 +41,6 @@ import time
 import random
 import socket
 import threading
-#TODO: Implement the functions below.
-# Source 1) How to use sockets is done based on this video: https://www.youtube.com/watch?v=YwWfKitB8aA
-# Source 2) Sending and receiving chunks of file with TCP connection in Python is based on this: https://stackoverflow.com/questions/27241804/sending-a-file-over-tcp-sockets-in-python
-# Source 3) 
-#+ Documentations of each used library :D
 
 fileDict = {}       # Dictionary of files available for sharing. Form: hash value of the file as key and fileName as value
 isAlive = True
@@ -97,26 +85,12 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
                 byte = file.read(1024)
                 chunk += 1
             client.shutdown(socket.SHUT_RDWR)
-            #client.close()
             print("File send to the server")
-            #time.sleep(3)
-            #newClient = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            #connectToTargetServer(newClient, serverIP, port)
     except FileNotFoundError:
         print("Check the file name and try again")
     except Exception as e: 
         print(f"Try again, error: {e}")
 
-#def reassembleFile(fileHash, fileName, chunkPaths):
-    """
-    Combines chunks into the complete file after downloading.
-
-    Parameters:
-    - fileHash: The hash value identifying the file. E.g. "a1b2c3d4".
-
-    Returns:
-    - filePath: The path to the reassembled file. E.g. "C:/Users/User/Documents/file.txt".
-    """
 # This function tries to find the path of file by its name 
 def getFilePath(fileName):
     try:
@@ -179,7 +153,6 @@ def requestFile(client, fileHash):
     message = "DOWNLOADREQUEST:" + fileHash
     client.send(message.encode("utf-8"))
     print("File request send")
-
 # This function sends the information about file which is uploaded to the target server which saves
 # that information into database that is JSON format.
 # Client sends their own username, name of the file and hash value of the file
@@ -195,7 +168,8 @@ def uploadFile(client, username, fileName):
             print(f"Upload request failed, error{error}")
     else:
         print("File path not found!")
-
+# This function is used to send file names to the target server and it takes those files which
+# user has added to files folder which should be located in same folder as this app. 
 def sendFileNamesToServer(client, username):
     try:
         filesDirPath = os.getcwd() + "\\files"
@@ -214,8 +188,7 @@ def connectToTargetServer(client, address, port):
         client.connect((address, port))
     except Exception as e: 
         print(f"Exception occurred in connecting to the target server: {e}")
-# This function listens for messages that are coming from the server and responds to them
-# based on the options it has which are FILELIST, UPLOAD, NEWFILE, FILESENDREQUEST, FILE
+# This function listens for server for checking whether their username was unique or not meaning whether their connection succeeded
 def listenForNicknameStatus(client):
     username = None
     status = "INVALID"
@@ -230,10 +203,12 @@ def listenForNicknameStatus(client):
         else:
             print("Invalid username, try again")
     return username
+# This function listens for messages that are coming from the server and responds to them
+# based on the options it has which are FILELIST, UPLOAD, NEWFILE, FILESENDREQUEST, FILE
 
 def listenForServerConnection(client, serverIP, port):
     """
-    messages server can be received from the target server:
+    Messages server can be received from the target server and what is supposed to happen in client-side:
     FILELIST -- Updates the dictionary (fileDict) containing files that are available for sharing
     UPLOAD -- Tells the status of the uploading file info to the database
     NEWFILE -- Server informs the client to update their fileDict because some other client has uploaded new files to the network
@@ -312,21 +287,15 @@ def listenForServerConnection(client, serverIP, port):
             fileDict.clear()
             return
 
-#TODO: Add in the functions from above to the main below to make them work.
-# Main
+# This function simply prints the names of files that are available for downloading in the network
 def printFileList():
-    print(fileDict)
-    index = 0
     for hash in fileDict: 
-       print(fileDict[hash], index)
-       index = index + 1
+       print(fileDict[hash])
 if __name__ == "__main__":
     chunk_size = 1024 # Chunk size will be approximately 1 kb (1024 bytes)
-    chunkPaths = []
-    # Specifying the new user as part of peer network
+    # Specifying the information of target server
     serverIP = sys.argv[1]
     port = int(sys.argv[2])
-    #username = input("Give your username: ")
     # Defining client socket
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connectToTargetServer(client, serverIP, port)
@@ -365,6 +334,7 @@ if __name__ == "__main__":
                     request = "FILELISTREQUEST:"
                     client.send(request.encode("utf-8"))
                     fileHashList = list(fileDict.keys())
+                    # This takes the first item in the list as test case
                     if(len(fileHashList) > 0):
                         fileHash = fileHashList[0]
                         requestFile(client, fileHash)  
@@ -378,8 +348,8 @@ if __name__ == "__main__":
                     print("Read the options again and give a new choice.")
         except ConnectionResetError:
             print("Connection to target server was closed due server error")
+            client.close()
         except ConnectionRefusedError and BrokenPipeError:
-            #print("Connection closed, closing the program")
             client.close()
             isAlive = True
         

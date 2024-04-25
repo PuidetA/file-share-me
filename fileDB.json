@@ -1,16 +1,1 @@
-{
-   "data": [
-      {
-         "hash": "e4fa8bb5e6fa59de4dfb61e487346af5a584f39025e384f50fa60322dfe9f4a1",
-         "owner": "userA",
-         "fileName": "start.png",
-         "id": 904755608496972078
-      },
-      {
-         "hash": "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a",
-         "owner": "userA",
-         "fileName": "test.txt",
-         "id": 110172859135278714
-      }
-   ]
-}
+{"data": [{"hash": "2fec554dcfee632fda5710d631d6474c901cc335b8fce534ddccaff5db922d9d", "owner": "userA", "fileName": "test.pdf", "id": 194631198261637726}]}
