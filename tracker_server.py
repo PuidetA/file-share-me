@@ -58,11 +58,11 @@ def clientDisconnect(nickname):
 # Sends the file list to a client requesting it.
 def sendFileList(client):
         try:
-            fileList = fileDB.getAll()
+            message = "FILELIST"
+            fileList = fileDB.getAll() 
             for file in fileList:
-                message = "FILELIST:" + file["hash"] + ":" + file["fileName"]
-                client.send(message.encode("utf-8"))
-                time.sleep(0.2) # This is here to sync with the client
+                message = message + ":"+ file["hash"] + "-" + file["fileName"]
+            client.send(message.encode("utf-8"))
         except Exception as e:
             print("\nsendFileList")
             print("Exception occurred:", e)
