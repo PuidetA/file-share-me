@@ -134,6 +134,10 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
 
 
 #   2. User Interface (UI)
+def displayDownloadableFilesList(listbox):
+    listbox.delete(0, 'end') #Clears the listbox before adding files to it. This is to ensure that only the files in the selected directory are displayed. (also to avoid duplicating the same directory if the user runs the command multiple times.)
+    for file_hash, filename in fileDict.items():
+        listbox.insert('end', f"{filename} (Hash: {file_hash})")
 
 
 def displayCurrentFileList(givenDirectoryPath, listbox):
@@ -250,15 +254,19 @@ def main():
     #1. The "Absolute file path" entry widget to paste the absolute path to the local directory.
     #2. The "Select directory" button which runs commands that let you choose a directory from your computer and pastes it into the entry widget (it clears the text box before pasting).
     #3. The "Enter" button to get the absolute directory path from the entry widget and display the files via displayCurrentFileList(*) function.
+    #4. The "View Downloadable Files" button to display the files that are downloadable from the server.
     filepathInstructionText = ctk.CTkLabel(commandFrame, text="Enter the path of the file folder to select and view.")
     filepathInstructionText.grid(row=6, column=0)
     filepathEntry = ctk.CTkEntry(commandFrame, placeholder_text="Absolute file path")
     filepathEntry.grid(row=7, column=0)
-    #File selection button - opens a file dialog to select a file
+    #File selection button - opens a file dialog to select a file - then button to display the files from the filepathEntry widget
     filepathEntryDirectorySelectButton = ctk.CTkButton(commandFrame, text="Select directory", command=lambda: selectLocalDirectory(filepathEntry)) 
     filepathEntryDirectorySelectButton.grid(row=8, column=0, pady=2)
     selectButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: displayCurrentFileList(filepathEntry.get(), listbox))
     selectButton.grid(row=9, column=0, pady=10)
+    #Display downloadable files
+    displayDownloadableFilesButton = ctk.CTkButton(commandFrame, text="View Downloadable Files", command=lambda: displayDownloadableFilesList(listbox))
+    displayDownloadableFilesButton.grid(row=10, column=0, pady=2)
 
 
 
@@ -266,28 +274,28 @@ def main():
 
     #Upload and Download file instructions
     uploadDownloadInstructionText = ctk.CTkLabel(commandFrame, text="Select a file to upload or download.")
-    uploadDownloadInstructionText.grid(row=10, column=0)
+    uploadDownloadInstructionText.grid(row=11, column=0)
 
 
     #Section covers the "Download" button that will be used to download the selected file
     downloadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Download file name")
-    downloadEntry.grid(row=11, column=0)
+    downloadEntry.grid(row=12, column=0)
     downloadButton = ctk.CTkButton(commandFrame, text="Download", command=lambda: downloadFile(calculateFileHash(getFilePath(downloadEntry.get()))))
-    downloadButton.grid(row=12, column=0, pady=2)
+    downloadButton.grid(row=13, column=0, pady=2)
 
 
     #Section covers the "Upload" button that will be used to upload the selected file
     uploadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Upload file name")
-    uploadEntry.grid(row=13, column=0, pady=2)
+    uploadEntry.grid(row=14, column=0, pady=2)
     uploadButton = ctk.CTkButton(commandFrame, text="Upload", command=lambda: uploadFile(client, nickname, calculateFileHash(getFilePath(uploadEntry.get()))))
-    uploadButton.grid(row=14, column=0)
+    uploadButton.grid(row=15, column=0)
 
 
 
 
     #Section covers the "Exit" button that will be used to exit the program
     exitButton = ctk.CTkButton(commandFrame, fg_color="red", text="Disconnect & Exit", command=exitProgram)
-    exitButton.grid(row=15, column=0, pady=20)
+    exitButton.grid(row=16, column=0, pady=20)
 
 
 
