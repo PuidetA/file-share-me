@@ -210,12 +210,14 @@ def main():
 
     commandFrame=ctk.CTkFrame(root, width=140, corner_radius=0) #Frame in which the command buttons and entries are placed in
     commandFrame.grid(row=0, column=0, sticky="nsew", rowspan=4) #Places the commandFrame in the main window
-    commandFrame.grid_rowconfigure(14, weight=1) #Configures the row of the commandFrame
+    commandFrame.grid_rowconfigure(18, weight=1) #Configures the row of the commandFrame
 
     ## commandFrame widgets
     #Section covers the intro text and places it in the commandFrame at the top
     introText = ctk.CTkLabel(commandFrame, text="File Sharing Application Text", corner_radius=10)
     introText.grid(row=0, column=0)
+
+
 
     #Section covers the connect button and the entry widgets for the IP address and port number
     connectInstructionText = ctk.CTkLabel(commandFrame, text="Enter IP address and port number to connect to")
@@ -227,44 +229,57 @@ def main():
     connectButton = ctk.CTkButton(commandFrame, text="Connect", command=lambda: registerPeer(connectEntryIP.get(), connectEntryPort.get()))
     connectButton.grid(row=4, column=0, pady=10)
 
+    #Section covers the username entry widget
+    usernameInstructionText = ctk.CTkLabel(commandFrame, text="Please enter your username")
+    usernameInstructionText.grid(row=5, column=0)
+    usernameEntry = ctk.CTkEntry(commandFrame, placeholder_text="Enter username")
+    usernameEntry.grid(row=6, column=0)
+    usernameButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: listenForNicknameStatus(client))
+    usernameButton.grid(row=7, column=0, pady=2)
+
 
     #Section covers:
     #1. The "Absolute file path" entry widget to paste the absolute path to the local directory.
     #2. The "Select directory" button which runs commands that let you choose a directory from your computer and pastes it into the entry widget (it clears the text box before pasting).
     #3. The "Enter" button to get the absolute directory path from the entry widget and display the files via displayCurrentFileList(*) function.
     filepathInstructionText = ctk.CTkLabel(commandFrame, text="Enter the path of the file folder to select and view")
-    filepathInstructionText.grid(row=5, column=0)
+    filepathInstructionText.grid(row=8, column=0)
     filepathEntry = ctk.CTkEntry(commandFrame, placeholder_text="Absolute file path")
-    filepathEntry.grid(row=6, column=0)
+    filepathEntry.grid(row=9, column=0)
     #File selection button - opens a file dialog to select a file
     filepathEntryDirectorySelectButton = ctk.CTkButton(commandFrame, text="Select directory", command=lambda: selectLocalDirectory(filepathEntry)) 
-    filepathEntryDirectorySelectButton.grid(row=7, column=0, pady=2)
+    filepathEntryDirectorySelectButton.grid(row=10, column=0, pady=2)
     selectButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: displayCurrentFileList(filepathEntry.get(), listbox))
-    selectButton.grid(row=8, column=0, pady=10)
+    selectButton.grid(row=11, column=0, pady=10)
+
+
 
 
 
     #Upload and Download file instructions
     uploadDownloadInstructionText = ctk.CTkLabel(commandFrame, text="Select a file to upload or download")
-    uploadDownloadInstructionText.grid(row=9, column=0)
+    uploadDownloadInstructionText.grid(row=12, column=0)
 
 
     #Section covers the "Download" button that will be used to download the selected file
     downloadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Download file name")
-    downloadEntry.grid(row=10, column=0)
+    downloadEntry.grid(row=13, column=0)
     downloadButton = ctk.CTkButton(commandFrame, text="Download", command=lambda: requestFile(client, fileHash))
-    downloadButton.grid(row=11, column=0, pady=2)
+    downloadButton.grid(row=14, column=0, pady=2)
 
 
     #Section covers the "Upload" button that will be used to upload the selected file
     uploadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Upload file name")
-    uploadEntry.grid(row=12, column=0, pady=2)
+    uploadEntry.grid(row=15, column=0, pady=2)
     uploadButton = ctk.CTkButton(commandFrame, text="Upload", command=lambda: uploadFile(client, username, fileName))
-    uploadButton.grid(row=13, column=0)
+    uploadButton.grid(row=16, column=0)
+
+
+
 
     #Section covers the "Exit" button that will be used to exit the program
     exitButton = ctk.CTkButton(commandFrame, fg_color="red", text="Disconnect & Exit", command=exitProgram)
-    exitButton.grid(row=14, column=0, pady=30)
+    exitButton.grid(row=17, column=0, pady=20)
 
 
 
@@ -310,7 +325,19 @@ def selectLocalDirectory(filepathEntry):
     """directoryPath = filedialog.askdirectory() #Opens a dialog box to select a directory and assigns the selected directory to directoryPath
     return directoryPath"""
 
+def enterUsername(usernameEntry):
+    status = "INVALID"
+    username = usernameEntry
 
+
+    client.send(username.encode("utf-8"))
+    status = client.recv(1024).decode("utf-8")
+    if(status == "VALID"):
+        sendFileNamesToServer(client, username)
+    else:
+        print("Error: Invalid username, try again")
+        username = None
+    
 
 def registerPeer(serverIP, port):
     serverIP = sys.argv[1]
