@@ -64,7 +64,6 @@ fileDict = {}       # Dictionary of files available for sharing. Form: hash valu
 isAlive = True
 CHUNK_SIZE = 1024 # Chunk size will be approximately 1 kb (1024 bytes)
 chunkPaths = []
-currentFileDirectory = ""
 username = None
 
 
@@ -134,12 +133,12 @@ def divideFileIntoChunksAndSendChunks(client, filePath, chunkSize):
 
 
 
-#   2. TODO: User Interface (UI)
+#   2. User Interface (UI)
 
 
 def displayCurrentFileList(givenDirectoryPath, listbox):
 # This function tries to find the path of file by its name 
-
+    global currentFileDirectory
     currentFileDirectory = givenDirectoryPath
     listbox.delete(0, 'end') #Clears the listbox before adding files to it. This is to ensure that only the files in the selected directory are displayed. (also to avoid duplicating the same directory if the user runs the command multiple times.)
     #testList = ["file1.txt", "file2.txt", "file3.txt", "file4.txt"] #Test list of files for sharing
@@ -159,6 +158,11 @@ def getFilePath(fileName):
             return None
     except FileNotFoundError as e:
         print(f"File not found: {e}")
+
+def displayFileList():
+    request = "FILELISTREQUEST:"
+    client.send(request.encode("utf-8"))
+
 
     
 
@@ -183,6 +187,7 @@ def shareFileList(fileList):
     Returns: None
     """
 
+
 def main():
     """
     Main function to handle the user interface and file sharing operations.
@@ -200,9 +205,8 @@ def main():
 
 
 
-    #Configuring the grid layout of the window. It is a 4x4 grid.
+    #Configuring the grid layout of the window.
     root.grid_columnconfigure(1, weight=1)
-    #root.grid_columnconfigure((2, 3), weight=0)
     root.grid_columnconfigure(4, weight=1)
     root.grid_rowconfigure((0, 1, 2), weight=1)
 
@@ -219,73 +223,66 @@ def main():
 
 
 
-    #Section covers the connect button and the entry widgets for the IP address and port number
-    connectInstructionText = ctk.CTkLabel(commandFrame, text="Enter IP address and port number to connect to")
+    #Section covers the connect button and the entry widgets for the username,  IP address, and port number
+    connectInstructionText = ctk.CTkLabel(commandFrame, text="Enter your username. Then IP address and port number to connect to.")
     connectInstructionText.grid(row=1, column=0)
-    connectEntryIP = ctk.CTkEntry(commandFrame, placeholder_text="IP Address")
-    connectEntryIP.grid(row=2, column=0, pady=1)
-    connectEntryPort = ctk.CTkEntry(commandFrame, placeholder_text="Port Number")
-    connectEntryPort.grid(row=3, column=0)
-    connectButton = ctk.CTkButton(commandFrame, text="Connect", command=lambda: registerPeer(connectEntryIP.get(), connectEntryPort.get()))
-    connectButton.grid(row=4, column=0, pady=10)
-
-    #Section covers the username entry widget
-    usernameInstructionText = ctk.CTkLabel(commandFrame, text="Please enter your username")
-    usernameInstructionText.grid(row=5, column=0)
     usernameEntry = ctk.CTkEntry(commandFrame, placeholder_text="Enter username")
-    usernameEntry.grid(row=6, column=0)
-    usernameButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: listenForNicknameStatus(client))
-    usernameButton.grid(row=7, column=0, pady=2)
-
+    usernameEntry.grid(row=2, column=0)
+    connectEntryIP = ctk.CTkEntry(commandFrame, placeholder_text="IP Address")
+    connectEntryIP.grid(row=3, column=0, pady=1)
+    connectEntryPort = ctk.CTkEntry(commandFrame, placeholder_text="Port Number")
+    connectEntryPort.grid(row=4, column=0)
+    connectButton = ctk.CTkButton(commandFrame, text="Connect", command=lambda: registerPeer(connectEntryIP.get(), connectEntryPort.get(), usernameEntry.get()))
+    connectButton.grid(row=5, column=0, pady=10)
 
     #Section covers:
     #1. The "Absolute file path" entry widget to paste the absolute path to the local directory.
     #2. The "Select directory" button which runs commands that let you choose a directory from your computer and pastes it into the entry widget (it clears the text box before pasting).
     #3. The "Enter" button to get the absolute directory path from the entry widget and display the files via displayCurrentFileList(*) function.
-    filepathInstructionText = ctk.CTkLabel(commandFrame, text="Enter the path of the file folder to select and view")
-    filepathInstructionText.grid(row=8, column=0)
+    filepathInstructionText = ctk.CTkLabel(commandFrame, text="Enter the path of the file folder to select and view.")
+    filepathInstructionText.grid(row=6, column=0)
     filepathEntry = ctk.CTkEntry(commandFrame, placeholder_text="Absolute file path")
-    filepathEntry.grid(row=9, column=0)
+    filepathEntry.grid(row=7, column=0)
     #File selection button - opens a file dialog to select a file
     filepathEntryDirectorySelectButton = ctk.CTkButton(commandFrame, text="Select directory", command=lambda: selectLocalDirectory(filepathEntry)) 
-    filepathEntryDirectorySelectButton.grid(row=10, column=0, pady=2)
+    filepathEntryDirectorySelectButton.grid(row=8, column=0, pady=2)
     selectButton = ctk.CTkButton(commandFrame, text="Enter", command=lambda: displayCurrentFileList(filepathEntry.get(), listbox))
-    selectButton.grid(row=11, column=0, pady=10)
+    selectButton.grid(row=9, column=0, pady=10)
 
 
 
 
 
     #Upload and Download file instructions
-    uploadDownloadInstructionText = ctk.CTkLabel(commandFrame, text="Select a file to upload or download")
-    uploadDownloadInstructionText.grid(row=12, column=0)
+    uploadDownloadInstructionText = ctk.CTkLabel(commandFrame, text="Select a file to upload or download.")
+    uploadDownloadInstructionText.grid(row=10, column=0)
 
 
     #Section covers the "Download" button that will be used to download the selected file
     downloadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Download file name")
-    downloadEntry.grid(row=13, column=0)
+    downloadEntry.grid(row=11, column=0)
     downloadButton = ctk.CTkButton(commandFrame, text="Download", command=lambda: requestFile(client, fileHash))
-    downloadButton.grid(row=14, column=0, pady=2)
+    downloadButton.grid(row=12, column=0, pady=2)
 
 
     #Section covers the "Upload" button that will be used to upload the selected file
     uploadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Upload file name")
-    uploadEntry.grid(row=15, column=0, pady=2)
+    uploadEntry.grid(row=13, column=0, pady=2)
     uploadButton = ctk.CTkButton(commandFrame, text="Upload", command=lambda: uploadFile(client, username, fileName))
-    uploadButton.grid(row=16, column=0)
+    uploadButton.grid(row=14, column=0)
 
 
 
 
     #Section covers the "Exit" button that will be used to exit the program
     exitButton = ctk.CTkButton(commandFrame, fg_color="red", text="Disconnect & Exit", command=exitProgram)
-    exitButton.grid(row=17, column=0, pady=20)
+    exitButton.grid(row=15, column=0, pady=20)
 
 
 
     ### resultsFrame
 
-    resultsFrame=ctk.CTkFrame(root, width=200, height=400, corner_radius=10) #Frame in which the files are displayed TODO: Insert it and implement the displayCurrentFileList() function
+    resultsFrame=ctk.CTkFrame(root, width=200, height=400, corner_radius=10) #Frame in which the files are displayed
     resultsFrame.grid(row=0, column=4, sticky="NESW", rowspan=4, columnspan=2) #Places the resultsFrame in the main window
     resultsFrame.grid_rowconfigure(4, weight=3) #Configures the row of the resultsFrame
 
@@ -339,9 +336,11 @@ def enterUsername(usernameEntry):
         username = None
     
 
-def registerPeer(serverIP, port):
+def registerPeer(serverIP, port, username):
     serverIP = sys.argv[1]
     port = int(sys.argv[2])
+    global nickname
+    nickname = username
     connectToTargetServer(client, serverIP, port)
 
 def exitProgram():
@@ -538,11 +537,11 @@ if __name__ == "__main__":
         threadListenServer.start()
         try:
             while True:
-                print("What do you want to do?") # Comments to list off functions done by UI in main()
-                print("1) Print file list") #done
-                print("2) Upload file")
-                print("3) Download file") #done
-                print("0) Exit") #done
+                print("What do you want to do?") # Comments to list off functions done by UI in main(), and implemented functions (i.e. functional/usable)
+                print("1) Print file list") #done, implemented in displayFileList()
+                print("2) Upload file") #done, 
+                print("3) Download file") #done, 
+                print("0) Exit") #done, implemented in exitProgram()
                 choice = input("your choice: ")
                 if choice == "1":
                     # Request list of files from the target server
