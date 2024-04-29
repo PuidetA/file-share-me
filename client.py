@@ -235,7 +235,7 @@ def main():
 
     commandFrame=ctk.CTkFrame(root, width=140, corner_radius=0) #Frame in which the command buttons and entries are placed in
     commandFrame.grid(row=0, column=0, sticky="nsew", rowspan=4) #Places the commandFrame in the main window
-    commandFrame.grid_rowconfigure(18, weight=1) #Configures the row of the commandFrame
+    commandFrame.grid_rowconfigure(19, weight=1) #Configures the row of the commandFrame
 
     ## commandFrame widgets
     #Section covers the intro text and places it in the commandFrame at the top
@@ -285,9 +285,9 @@ def main():
 
     #Section covers the "Download" button that will be used to download the selected file
     downloadEntry = ctk.CTkEntry(commandFrame, placeholder_text="Download file name")
-    downloadEntry.grid(row=11, column=0)
+    downloadEntry.grid(row=12, column=0)
     downloadButton = ctk.CTkButton(commandFrame, text="Download", command=lambda: downloadFile(findFileHash(downloadEntry.get())))
-    downloadButton.grid(row=12, column=0, pady=2)
+    downloadButton.grid(row=13, column=0, pady=2)
 
 
     #Section covers the "Upload" button that will be used to upload the selected file
