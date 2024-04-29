@@ -168,6 +168,7 @@ def displayFileList():
     client.send(request.encode("utf-8"))
 
 def findFileHash(fileName):
+    fileHash = None
     for hash in fileDict:
         if fileName == fileDict[hash]:      
             fileHash = hash
